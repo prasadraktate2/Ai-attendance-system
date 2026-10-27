@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,145 +7,204 @@
 <title>AI Smart Attendance System</title>
 
 <style>
-* {
-  box-sizing: border-box;
+*{box-sizing:border-box}
+body{
+  margin:0;font-family:Arial,sans-serif;
+  background:#f1f5f9;color:#172554
 }
-
-body {
-  margin: 0;
-  font-family: Arial, sans-serif;
-  background: #eef2ff;
-  color: #172554;
+header{
+  background:#172554;color:white;padding:20px;
+  text-align:center
 }
-
-header {
-  background: #172554;
-  color: white;
-  padding: 22px;
-  text-align: center;
+nav{
+  display:flex;gap:8px;flex-wrap:wrap;
+  justify-content:center;background:white;padding:12px
 }
-
-header h1 {
-  margin: 0;
-  font-size: 25px;
+nav button,.action{
+  background:#2563eb;color:white;border:0;
+  border-radius:8px;padding:11px 14px;cursor:pointer
 }
-
-header p {
-  margin-bottom: 0;
+main{max-width:1000px;margin:auto;padding:18px}
+.panel{
+  background:white;border-radius:12px;padding:18px;
+  margin-bottom:18px;box-shadow:0 3px 12px #0000000d
 }
-
-.login-box {
-  background: white;
-  max-width: 420px;
-  margin: 45px auto;
-  padding: 28px;
-  border-radius: 16px;
-  box-shadow: 0 8px 25px #00000015;
+input,select{
+  width:100%;padding:12px;margin:8px 0 14px;
+  border:1px solid #cbd5e1;border-radius:7px
 }
-
-.login-box h2 {
-  text-align: center;
+label{font-weight:bold}
+table{width:100%;border-collapse:collapse;min-width:550px}
+th,td{padding:12px;border:1px solid #cbd5e1;text-align:left}
+th{background:#dbeafe}
+.table-wrap{overflow-x:auto}
+.stat-grid{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  gap:12px
 }
-
-label {
-  display: block;
-  margin-top: 18px;
-  margin-bottom: 7px;
-  font-weight: bold;
-}
-
-select, input {
-  width: 100%;
-  padding: 12px;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  font-size: 16px;
-}
-
-button {
-  width: 100%;
-  padding: 13px;
-  margin-top: 22px;
-  border: none;
-  border-radius: 8px;
-  background: #2563eb;
-  color: white;
-  font-size: 16px;
-  font-weight: bold;
-  cursor: pointer;
-}
-
-button:hover {
-  background: #1d4ed8;
-}
-
-#message {
-  text-align: center;
-  margin-top: 15px;
-}
-
-footer {
-  text-align: center;
-  padding: 20px;
-  color: #64748b;
-  font-size: 13px;
-}
+.stat{background:#dbeafe;padding:18px;border-radius:10px}
+.hidden{display:none}
+#notice{font-weight:bold}
 </style>
 </head>
-
 <body>
 
 <header>
-  <h1>🎓 AI Smart Attendance</h1>
-  <p>College Attendance Management System</p>
+  <h1>🎓 AI Smart Attendance System</h1>
+  <p>College Attendance Management</p>
 </header>
 
-<div class="login-box">
-  <h2>Welcome!</h2>
-  <p style="text-align:center">
-    Login to continue
-  </p>
+<nav>
+  <button onclick="showPage('login')">Login</button>
+  <button onclick="showPage('dashboard')">Dashboard</button>
+  <button onclick="showPage('timetable')">Weekly Timetable</button>
+  <button onclick="logout()">Logout</button>
+</nav>
 
-  <label for="role">Select Login Type</label>
+<main>
+<section id="login" class="panel">
+  <h2>Login</h2>
+  <label for="role">Login Type</label>
   <select id="role">
-    <option value="student">Student Login</option>
-    <option value="staff">Staff / Teacher Login</option>
+    <option value="Student">Student</option>
+    <option value="Staff">Staff / Teacher</option>
   </select>
 
-  <label for="userId">Student / Staff ID</label>
-  <input id="userId" type="text"
-         placeholder="Enter your ID">
+  <label for="uid">Student / Staff ID</label>
+  <input id="uid" placeholder="Enter ID">
 
-  <label for="name">Full Name</label>
-  <input id="name" type="text"
-         placeholder="Enter your name">
+  <label for="fullname">Full Name</label>
+  <input id="fullname" placeholder="Enter full name">
 
-  <button onclick="login()">Continue</button>
+  <button class="action" onclick="login()">Continue</button>
+  <p id="notice"></p>
+  <p>Demo login only. Identity is not verified.</p>
+</section>
 
-  <p id="message"></p>
-</div>
+<section id="dashboard" class="hidden">
+  <div class="panel">
+    <h2 id="welcome">Dashboard</h2>
+    <div class="stat-grid">
+      <div class="stat"><b>Total Students</b><h2>106</h2></div>
+      <div class="stat"><b>Attendance Today</b><h2 id="todayCount">0</h2></div>
+      <div class="stat"><b>Login Type</b><h2 id="userRole">—</h2></div>
+    </div>
+  </div>
 
-<footer>
-  AI Smart Attendance System © 2026
-</footer>
+  <div class="panel">
+    <h2>Mark Demo Attendance</h2>
+    <p>Use this only to test the interface.</p>
+    <label for="subject">Subject</label>
+    <select id="subject">
+      <option>Chemistry</option>
+      <option>Engineering Mathematics-I</option>
+      <option>Environmental Science</option>
+      <option>Physics</option>
+      <option>Communication</option>
+      <option>Computational Thinking & Problem Solving</option>
+      <option>Computer Workshop Practice</option>
+      <option>Introduction to AI Tools</option>
+      <option>Yoga and Meditation</option>
+      <option>Mandatory Course-I</option>
+    </select>
+    <button class="action" onclick="markAttendance()">Mark Attendance</button>
+    <p id="attendanceMsg"></p>
+  </div>
+</section>
+
+<section id="timetable" class="panel hidden">
+  <h2>Weekly Timetable</h2>
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>Day</th><th>Time</th><th>Subject</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Monday</td><td>10:00–10:50</td><td>Chemistry</td></tr>
+      <tr><td>Monday</td><td>10:50–11:50</td><td>Engineering Mathematics-I</td></tr>
+      <tr><td>Monday</td><td>12:30–2:30</td><td>Verbal Communication Skills</td></tr>
+      <tr><td>Monday</td><td>2:50–4:50</td><td>Chemistry</td></tr>
+
+      <tr><td>Tuesday</td><td>10:00–10:50</td><td>Environmental Science</td></tr>
+      <tr><td>Tuesday</td><td>10:50–11:50</td><td>Engineering Mathematics-I</td></tr>
+      <tr><td>Tuesday</td><td>12:30–2:30</td><td>Computational Thinking & Problem Solving</td></tr>
+      <tr><td>Tuesday</td><td>2:50–3:50</td><td>Computational Thinking & Problem Solving</td></tr>
+      <tr><td>Tuesday</td><td>3:50–4:50</td><td>Physics</td></tr>
+
+      <tr><td>Wednesday</td><td>10:00–10:50</td><td>Communication</td></tr>
+      <tr><td>Wednesday</td><td>10:50–11:50</td><td>Chemistry</td></tr>
+      <tr><td>Wednesday</td><td>12:30–1:30</td><td>Computational Thinking & Problem Solving</td></tr>
+      <tr><td>Wednesday</td><td>1:30–2:30</td><td>Engineering Mathematics-I</td></tr>
+      <tr><td>Wednesday</td><td>2:30–4:50</td><td>Yoga and Meditation</td></tr>
+
+      <tr><td>Thursday</td><td>10:55–10:55</td><td>Physics (time needs confirmation)</td></tr>
+      <tr><td>Thursday</td><td>10:55–11:50</td><td>Environmental Science</td></tr>
+      <tr><td>Thursday</td><td>12:30–2:30</td><td>Computer Workshop Practice</td></tr>
+      <tr><td>Thursday</td><td>2:50–4:50</td><td>Computer Workshop Practice</td></tr>
+
+      <tr><td>Friday</td><td>10:00–10:55</td><td>Engineering Mathematics-I</td></tr>
+      <tr><td>Friday</td><td>10:55–11:50</td><td>Computational Thinking & Problem Solving</td></tr>
+      <tr><td>Friday</td><td>12:30–2:30</td><td>Computer Workshop Practice</td></tr>
+      <tr><td>Friday</td><td>2:50–4:50</td><td>Introduction to AI Tools</td></tr>
+
+      <tr><td>Saturday</td><td>2:50–4:50</td><td>Mandatory Course-I</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+</main>
 
 <script>
-function login() {
-  const role = document.getElementById("role").value;
-  const id = document.getElementById("userId").value.trim();
-  const name = document.getElementById("name").value.trim();
-  const message = document.getElementById("message");
+let currentUser = null;
+let attendanceCount = 0;
 
-  if (id === "" || name === "") {
-    message.style.color = "red";
-    message.textContent = "Please enter your ID and name.";
+function showPage(page){
+  document.querySelectorAll('main > section').forEach(section=>{
+    section.classList.add('hidden');
+  });
+  document.getElementById(page).classList.remove('hidden');
+}
+
+function login(){
+  const role = document.getElementById('role').value;
+  const id = document.getElementById('uid').value.trim();
+  const name = document.getElementById('fullname').value.trim();
+
+  if(!id || !name){
+    document.getElementById('notice').textContent =
+      'Please enter your ID and full name.';
     return;
   }
 
-  message.style.color = "green";
-  message.textContent =
-    "Demo login successful! Welcome " + name +
-    ". Role: " + (role === "student" ? "Student" : "Staff");
+  currentUser = {id, name, role};
+  document.getElementById('welcome').textContent =
+    'Welcome, ' + name + '!';
+  document.getElementById('userRole').textContent = role;
+  document.getElementById('notice').textContent = '';
+  showPage('dashboard');
+}
+
+function markAttendance(){
+  if(!currentUser){
+    alert('Please login first.');
+    showPage('login');
+    return;
+  }
+  if(currentUser.role !== 'Staff'){
+    document.getElementById('attendanceMsg').textContent =
+      'Only Staff can use this demo attendance button.';
+    return;
+  }
+  attendanceCount++;
+  document.getElementById('todayCount').textContent = attendanceCount;
+  document.getElementById('attendanceMsg').textContent =
+    'Demo attendance marked for ' +
+    document.getElementById('subject').value + '.';
+}
+
+function logout(){
+  currentUser = null;
+  showPage('login');
 }
 </script>
 
