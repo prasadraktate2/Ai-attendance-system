@@ -1,72 +1,109 @@
 <script>
 const form = document.getElementById("loginForm");
 
+const timetable = {
+  Monday: [
+    ["Chemistry", "10:00–10:50"],
+    ["Engineering Mathematics-I", "10:50–11:50"],
+    ["Verbal Communication Skills", "12:30–2:30"],
+    ["Chemistry", "2:50–4:50"]
+  ],
+  Tuesday: [
+    ["Environmental Science", "10:00–10:50"],
+    ["Engineering Mathematics-I", "10:50–11:50"],
+    ["Computational Thinking & Problem Solving", "12:30–2:30"],
+    ["Computational Thinking & Problem Solving", "2:50–3:50"],
+    ["Physics", "3:50–4:50"]
+  ],
+  Wednesday: [
+    ["Communication", "10:00–10:50"],
+    ["Chemistry", "10:50–11:50"],
+    ["Computational Thinking & Problem Solving", "12:30–1:30"],
+    ["Engineering Mathematics-I", "1:30–2:30"],
+    ["Yoga and Meditation", "2:30–4:50"]
+  ],
+  Thursday: [
+    ["Physics", "10:00–10:55"],
+    ["Environmental Science", "10:55–11:50"],
+    ["Computer Workshop Practice", "12:30–2:30"],
+    ["Computer Workshop Practice", "2:50–4:50"]
+  ],
+  Friday: [
+    ["Engineering Mathematics-I", "10:00–10:55"],
+    ["Computational Thinking & Problem Solving", "10:55–11:50"],
+    ["Computer Workshop Practice", "12:30–2:30"],
+    ["Introduction to AI Tools", "2:50–4:50"]
+  ],
+  Saturday: [
+    ["Mandatory Course-I", "2:50–4:50"]
+  ]
+};
+
 form.addEventListener("submit", function(event) {
   event.preventDefault();
 
   const role = document.getElementById("role").value;
   const userId = document.getElementById("userId").value.trim();
+  if (!userId) return;
 
-  if (!userId) {
-    document.getElementById("message").textContent =
-      "Please enter your User ID.";
-    return;
-  }
-
-  const card = document.querySelector(".card");
-
-  card.innerHTML = `
+  document.querySelector(".card").innerHTML = `
     <h1>${role === "staff" ? "Staff Dashboard" : "Student Dashboard"}</h1>
     <p>AI Smart Attendance System</p>
-
-    <div style="background:#eef5ff;padding:15px;border-radius:10px;">
-      <strong>Login ID:</strong>
-      <span id="loggedUser"></span>
-    </div>
-
-    <h3>Features</h3>
-    <button type="button" id="timetableBtn">Weekly Timetable</button>
-    <button type="button" id="attendanceBtn">My Attendance</button>
-
-    ${role === "staff" ? `
-      <button type="button" id="manualBtn">Manual Attendance</button>
-      <button type="button" id="reportBtn">Attendance Reports</button>
-    ` : ""}
-
-    <div id="content" style="margin-top:20px;"></div>
-    <button type="button" id="logoutBtn" style="background:#b42318;">
-      Logout
-    </button>
+    <p>Login ID: <strong id="loggedUser"></strong></p>
+    <label for="daySelect">Select Day</label>
+    <select id="daySelect">
+      ${Object.keys(timetable).map(day =>
+        `<option value="${day}">${day}</option>`
+      ).join("")}
+    </select>
+    <div id="content"></div>
+    <button id="attendanceBtn">My Attendance</button>
+    ${role === "staff" ? '<button id="reportBtn">Attendance Reports</button>' : ""}
+    <button id="logoutBtn" style="background:#b42318">Logout</button>
   `;
 
   document.getElementById("loggedUser").textContent = userId;
 
-  document.getElementById("timetableBtn").onclick = () => {
-    document.getElementById("content").innerHTML =
-      "<h3>Weekly Timetable</h3><p>Monday to Saturday timetable will be added in Part 3.</p>";
-  };
+  function showTimetable() {
+    const day = document.getElementById("daySelect").value;
+    const rows = timetable[day];
 
+    document.getElementById("content").innerHTML = `
+      <h3>${day} Timetable</h3>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse">
+          <tr style="background:#dbeafe">
+            <th style="padding:8px;border:1px solid #ccc">Lecture</th>
+            <th style="padding:8px;border:1px solid #ccc">Subject</th>
+            <th style="padding:8px;border:1px solid #ccc">Time</th>
+          </tr>
+          ${rows.map((row, i) => `
+            <tr>
+              <td style="padding:8px;border:1px solid #ccc">${i + 1}</td>
+              <td style="padding:8px;border:1px solid #ccc">${row[0]}</td>
+              <td style="padding:8px;border:1px solid #ccc">${row[1]}</td>
+            </tr>
+          `).join("")}
+        </table>
+      </div>
+    `;
+  }
+
+  document.getElementById("daySelect").onchange = showTimetable;
   document.getElementById("attendanceBtn").onclick = () => {
     document.getElementById("content").innerHTML =
-      "<h3>Attendance</h3><p>Attendance records will be connected in a later part.</p>";
+      "<h3>My Attendance</h3><p>Attendance database will be added in a later part.</p>";
   };
-
-  const manualBtn = document.getElementById("manualBtn");
-  if (manualBtn) {
-    manualBtn.onclick = () => {
-      document.getElementById("content").innerHTML =
-        "<h3>Manual Attendance</h3><p>Attendance marking will be added in a later part.</p>";
-    };
-  }
 
   const reportBtn = document.getElementById("reportBtn");
   if (reportBtn) {
     reportBtn.onclick = () => {
       document.getElementById("content").innerHTML =
-        "<h3>Attendance Reports</h3><p>Reports and CSV download will be added in a later part.</p>";
+        "<h3>Attendance Reports</h3><p>Reports will be added in a later part.</p>";
     };
   }
 
   document.getElementById("logoutBtn").onclick = () => location.reload();
+  showTimetable();
 });
 </script>
