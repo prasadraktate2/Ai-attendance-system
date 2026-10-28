@@ -1,12 +1,13 @@
 // ===== SWITCH: false = DEMO (saves in this browser only), true = Firebase =====
-export const USE_FIREBASE = false;
+export const USE_FIREBASE = true;
 
-// Firebase keys go here later (only needed when USE_FIREBASE = true)
 const firebaseConfig = {
-  apiKey: "PASTE_API_KEY",
-  authDomain: "PASTE_PROJECT.firebaseapp.com",
-  projectId: "PASTE_PROJECT_ID",
-  appId: "PASTE_APP_ID"
+  apiKey: "AIzaSyBVLCOEYS4mDX3Os-Aryup9_rEKjVGz8jc",
+  authDomain: "ai-attendance-system-ce9ec.firebaseapp.com",
+  projectId: "ai-attendance-system-ce9ec",
+  storageBucket: "ai-attendance-system-ce9ec.firebasestorage.app",
+  messagingSenderId: "497801851272",
+  appId: "1:497801851272:web:edf72a228aefc1acbe0a3d"
 };
 
 let fb = null;
