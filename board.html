@@ -1,1 +1,204 @@
- 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Board</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, sans-serif; background: #f1f5f9; color: #172033; }
+    header { background: #000; color: white; padding: 16px; display: flex; gap: 14px; align-items: center; }
+    header a { color: white; text-decoration: none; font-size: 24px; }
+    header h1 { margin: 0; font-size: 20px; }
+    .wrap { max-width: 700px; margin: 0 auto; padding: 16px; }
+    .card { background: white; border-radius: 14px; padding: 16px; margin-bottom: 14px; box-shadow: 0 3px 10px #00000012; }
+    label { display: block; margin: 10px 0 6px; font-weight: bold; }
+    input, textarea, select, button { width: 100%; padding: 11px; border-radius: 8px; font-size: 16px; }
+    input, textarea, select { border: 1px solid #cbd5e1; background: white; }
+    button { margin-top: 12px; border: none; background: #2563eb; color: white; font-weight: bold; cursor: pointer; }
+    .item h3 { margin: 0 0 6px; color: #172554; overflow-wrap: anywhere; }
+    .item p { margin: 4px 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+    .tag { display: inline-block; padding: 3px 8px; border-radius: 6px; background: #dbeafe; color: #123b73; font-size: 12px; font-weight: bold; margin-bottom: 6px; }
+    .small { color: #64748b; font-size: 13px; }
+    .del { width: auto; padding: 6px 12px; background: #fee2e2; color: #b91c1c; margin-top: 8px; }
+    #msg { font-weight: bold; color: #b91c1c; }
+  </style>
+</head>
+<body>
+  <header><a href="dashboard.html">←</a><h1 id="title"></h1></header>
+
+  <div class="wrap">
+    <div class="card" id="form" hidden>
+      <b>Add new (staff)</b>
+      <div id="tagBox" hidden>
+        <label for="tag">Subject</label>
+        <select id="tag"></select>
+      </div>
+      <div id="dateBox" hidden>
+        <label for="date">Date</label>
+        <input id="date" type="date">
+      </div>
+      <label for="ptitle">Title</label>
+      <input id="ptitle" type="text">
+      <div id="bodyBox">
+        <label for="body">Details</label>
+        <textarea id="body" rows="3"></textarea>
+      </div>
+      <div id="linkBox" hidden>
+        <label for="link">Link (optional)</label>
+        <input id="link" type="text" placeholder="https://...">
+      </div>
+      <button onclick="addItem()">Add</button>
+      <p id="msg"></p>
+    </div>
+
+    <div id="list"></div>
+  </div>
+
+  <script type="module">
+    import { addPost, getPosts, deletePost } from "./store.js";
+    import { TIMETABLE } from "./timetable.js";
+
+    const type = new URLSearchParams(location.search).get("type") || "notice";
+    const CONFIG = {
+      calendar: { title: "Academic Calendar", date: true },
+      lms: { title: "LMS", tag: true, link: true },
+      notice: { title: "Notifications" }
+    };
+    const cfg = CONFIG[type] || CONFIG.notice;
+    const isStaff = (sessionStorage.getItem("attendanceRole") || "").toLowerCase() === "staff";
+    const loggedIn = !!sessionStorage.getItem("attendanceUser");
+
+    document.getElementById("title").textContent = cfg.title;
+    document.title = cfg.title;
+
+    if (!loggedIn) {
+      document.querySelector(".wrap").innerHTML =
+        '<div class="card"><p>Please <a href="index.html">log in</a>.</p></div>';
+    } else {
+      if (isStaff) {
+        document.getElementById("form").hidden = false;
+        if (cfg.date) document.getElementById("dateBox").hidden = false;
+        if (cfg.link) document.getElementById("linkBox").hidden = false;
+        if (cfg.tag) {
+          document.getElementById("tagBox").hidden = false;
+          const subjects = new Set();
+          Object.values(TIMETABLE).forEach(function (day) {
+            day.forEach(function (s) { if (s.subject) subjects.add(s.subject); });
+          });
+          const sel = document.getElementById("tag");
+          Array.from(subjects).sort().forEach(function (s) {
+            const o = document.createElement("option");
+            o.textContent = s;
+            sel.appendChild(o);
+          });
+        }
+      }
+      load();
+    }
+
+    function safeLink(u) {
+      return /^https?:\/\//i.test(u) ? u : "";
+    }
+
+    async function load() {
+      const box = document.getElementById("list");
+      box.innerHTML = "";
+      let items = [];
+      try { items = await getPosts(type); }
+      catch (e) { console.error(e); box.textContent = "Could not load."; return; }
+
+      if (cfg.date) items.sort(function (a, b) { return a.date.localeCompare(b.date); });
+      else items.sort(function (a, b) { return b.createdAt - a.createdAt; });
+
+      if (!items.length) {
+        box.innerHTML = '<div class="card small">Nothing here yet.</div>';
+        return;
+      }
+
+      items.forEach(function (p) {
+        const c = document.createElement("div");
+        c.className = "card item";
+
+        if (p.tag) {
+          const t = document.createElement("span");
+          t.className = "tag";
+          t.textContent = p.tag;
+          c.appendChild(t);
+        }
+        const h = document.createElement("h3");
+        h.textContent = p.title;
+        c.appendChild(h);
+
+        if (p.date) {
+          const d = document.createElement("p");
+          d.className = "small";
+          d.textContent = "📅 " + p.date;
+          c.appendChild(d);
+        }
+        if (p.body) {
+          const b = document.createElement("p");
+          b.textContent = p.body;
+          c.appendChild(b);
+        }
+        const href = safeLink(p.link || "");
+        if (href) {
+          const a = document.createElement("a");
+          a.href = href;
+          a.target = "_blank";
+          a.rel = "noopener";
+          a.textContent = "Open link";
+          c.appendChild(a);
+        }
+        const meta = document.createElement("p");
+        meta.className = "small";
+        meta.textContent = (p.by ? p.by + " · " : "") + new Date(p.createdAt).toLocaleDateString();
+        c.appendChild(meta);
+
+        if (isStaff) {
+          const del = document.createElement("button");
+          del.className = "del";
+          del.textContent = "Delete";
+          del.onclick = async function () {
+            if (!confirm("Delete this?")) return;
+            await deletePost(p.id);
+            load();
+          };
+          c.appendChild(del);
+        }
+        box.appendChild(c);
+      });
+    }
+
+    window.addItem = async function () {
+      const msg = document.getElementById("msg");
+      const title = document.getElementById("ptitle").value.trim();
+      const date = document.getElementById("date").value;
+      if (!title) { msg.textContent = "Please enter a title."; return; }
+      if (cfg.date && !date) { msg.textContent = "Please select a date."; return; }
+
+      const link = document.getElementById("link").value.trim();
+      if (link && !safeLink(link)) { msg.textContent = "Link must start with http:// or https://"; return; }
+
+      try {
+        await addPost(type, {
+          title: title,
+          body: document.getElementById("body").value.trim(),
+          link: link,
+          tag: cfg.tag ? document.getElementById("tag").value : "",
+          date: cfg.date ? date : "",
+          by: sessionStorage.getItem("attendanceUser")
+        });
+        msg.textContent = "";
+        document.getElementById("ptitle").value = "";
+        document.getElementById("body").value = "";
+        document.getElementById("link").value = "";
+        load();
+      } catch (e) {
+        console.error(e);
+        msg.textContent = "Could not save. Check Firebase setup.";
+      }
+    };
+  </script>
+</body>
+</html>
