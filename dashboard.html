@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI Smart Attendance - Dashboard</title>
+  <title>AI Smart Attendance - Home</title>
 
   <style>
     * { box-sizing: border-box; }
@@ -15,137 +15,95 @@
       color: #172033;
     }
 
-    nav {
-      background: white;
-      padding: 12px;
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 12px;
-      border-bottom: 1px solid #e2e8f0;
-    }
-
-    .btn {
-      display: inline-block;
-      padding: 12px 20px;
-      border: none;
-      border-radius: 10px;
-      background: #2563eb;
+    header {
+      background: #000;
       color: white;
-      font-size: 16px;
-      font-weight: bold;
-      text-decoration: none;
-      cursor: pointer;
+      padding: 20px 18px 56px;
+      border-radius: 0 0 40px 0;
     }
 
-    .card {
-      max-width: 700px;
-      margin: 16px auto;
-      padding: 20px;
-      background: white;
-      border-radius: 16px;
-      box-shadow: 0 4px 15px #00000010;
+    .top { display: flex; justify-content: space-between; align-items: center; }
+    .app { font-size: 22px; font-weight: bold; }
+    .out {
+      padding: 8px 14px; border: 1px solid #fff; border-radius: 8px;
+      background: transparent; color: white; font-size: 14px; cursor: pointer;
     }
+    .name { margin: 18px 0 4px; font-size: 22px; font-weight: bold; color: #fcd34d; text-transform: uppercase; overflow-wrap: anywhere; }
+    .meta { font-size: 15px; color: #e2e8f0; }
 
-    h1, h2 { color: #172554; margin-top: 0; }
+    .info {
+      display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px;
+      margin-top: 14px; padding-top: 12px; border-top: 1px solid #334155;
+    }
+    .info div { font-size: 15px; font-weight: bold; }
+    .info small { display: block; color: #94a3b8; font-weight: normal; font-size: 13px; }
 
-    .stats {
+    .stats { display: flex; gap: 12px; margin-top: 14px; }
+    .stat { flex: 1; background: #1e293b; border-radius: 12px; padding: 10px 12px; }
+    .stat small { color: #94a3b8; display: block; }
+    .stat b { font-size: 24px; }
+
+    .grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(3, 1fr);
       gap: 14px;
+      padding: 0 16px;
+      margin: -34px auto 24px;
+      max-width: 700px;
     }
 
-    .stat {
-      background: #dbeafe;
-      border-radius: 14px;
-      padding: 18px;
-      min-height: 120px;
+    .tile {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      min-height: 120px; padding: 10px; background: white; border-radius: 14px;
+      box-shadow: 0 3px 10px #00000018; text-decoration: none; color: #0f172a;
+      text-align: center; font-weight: bold; font-size: 15px;
     }
+    .tile span { font-size: 38px; margin-bottom: 8px; }
 
-    .stat p { margin: 0 0 12px; font-weight: bold; color: #172554; }
-    .stat .value { font-size: 32px; font-weight: bold; color: #172554; }
-
-    .actions { display: flex; flex-direction: column; gap: 12px; }
-    .actions .btn { text-align: center; }
-
-    .note { color: #64748b; font-size: 14px; line-height: 1.5; }
-
-    .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
-    .tab {
-      padding: 8px 14px; border: none; border-radius: 20px;
-      background: #e2e8f0; color: #172033; font-weight: bold; cursor: pointer;
-    }
-    .tab.active { background: #172554; color: white; }
-
-    .slot {
-      display: flex; gap: 12px; padding: 12px; margin-bottom: 10px;
-      border: 1px solid #e2e8f0; border-radius: 12px; background: white;
-    }
-    .slot.now { border: 2px solid #2563eb; background: #eff6ff; }
-    .time { min-width: 92px; font-size: 13px; color: #475569; }
-    .badge {
-      display: inline-block; padding: 3px 8px; border-radius: 6px;
-      font-size: 12px; font-weight: bold; margin-bottom: 6px;
-    }
-    .b-Lecture { background: #cffafe; color: #0e7490; }
-    .b-Lab { background: #fee2e2; color: #b91c1c; }
-    .b-Other { background: #f3e8ff; color: #7e22ce; }
-    .subject { font-weight: bold; color: #0f172a; }
-    .teachers { font-size: 13px; color: #475569; margin-top: 4px; }
-    .recess {
-      text-align: center; padding: 10px; margin-bottom: 10px; border-radius: 12px;
-      background: #f7fee7; color: #ca8a04; font-weight: bold;
+    .center { max-width: 420px; margin: 40px auto; padding: 20px; text-align: center; }
+    .btn {
+      display: inline-block; padding: 12px 20px; border-radius: 10px;
+      background: #2563eb; color: white; font-weight: bold; text-decoration: none;
     }
   </style>
 </head>
 
 <body>
-  <nav id="nav"></nav>
-
-  <div class="card" id="welcomeCard" hidden>
-    <h1 id="welcome"></h1>
-
-    <div class="stats">
-      <div class="stat" id="totalBox">
-        <p>Total Students</p>
-        <div class="value">106</div>
-      </div>
-      <div class="stat">
-        <p id="todayLabel">Attendance Today</p>
-        <div class="value" id="todayCount">0</div>
-      </div>
-      <div class="stat">
-        <p>Login Type</p>
-        <div class="value" id="loginType"></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="card" id="actionCard" hidden>
-    <h2>Attendance</h2>
-    <div class="actions" id="actions"></div>
-  </div>
-
-  <div class="card" id="timetable" hidden>
-    <h2>Weekly Timetable</h2>
-    <div class="tabs" id="dayTabs"></div>
-    <div id="slots"></div>
-  </div>
-
-  <div class="card" id="loginCard" hidden>
+  <div id="loginCard" class="center" hidden>
     <h2>Please log in</h2>
-    <p class="note">You need to log in to see the dashboard.</p>
     <a class="btn" href="index.html">Go to Login</a>
   </div>
 
+  <div id="home" hidden>
+    <header>
+      <div class="top">
+        <div class="app">📷 Smart Attendance</div>
+        <button class="out" onclick="logout()">Logout</button>
+      </div>
+      <div class="name" id="welcome"></div>
+      <div class="meta" id="meta"></div>
+      <div class="info" id="info"></div>
+      <div class="stats">
+        <div class="stat"><small id="todayLabel">Attendance Today</small><b id="todayCount">0</b></div>
+        <div class="stat" id="totalBox"><small>Total Students</small><b id="totalCount">0</b></div>
+      </div>
+    </header>
+
+    <div class="grid" id="grid"></div>
+  </div>
+
   <script type="module">
-    import { watchToday } from "./store.js";
-    import { DAY_NAMES, TIMETABLE, todayKey, fmt, currentIndex } from "./timetable.js";
+    import { watchToday, getStudents } from "./store.js";
+    import { CLASS_INFO } from "./timetable.js";
 
     const name = sessionStorage.getItem("attendanceUser");
     const role = (sessionStorage.getItem("attendanceRole") || "").toLowerCase();
     const userId = sessionStorage.getItem("attendanceUserId");
-    const nav = document.getElementById("nav");
+
+    window.logout = function () {
+      sessionStorage.clear();
+      window.location.href = "index.html";
+    };
 
     function todayString() {
       const d = new Date();
@@ -154,89 +112,62 @@
         String(d.getDate()).padStart(2, "0");
     }
 
-    function logout() {
-      sessionStorage.clear();
-      window.location.href = "index.html";
-    }
-    window.logout = logout;
-
-    function renderDay(day) {
-      const list = TIMETABLE[day];
-      const lectures = list.filter(function (x) { return x.type !== "Recess"; });
-      const nowSlot = day === todayKey() ? lectures[currentIndex(lectures)] : null;
-      const box = document.getElementById("slots");
-      box.innerHTML = "";
-
-      list.forEach(function (x) {
-        const el = document.createElement("div");
-        if (x.type === "Recess") {
-          el.className = "recess";
-          el.textContent = "RECESS";
-        } else {
-          const t = new Date();
-          const mins = t.getHours() * 60 + t.getMinutes();
-          const sm = Number(x.start.slice(0, 2)) * 60 + Number(x.start.slice(3));
-          const em = Number(x.end.slice(0, 2)) * 60 + Number(x.end.slice(3));
-          const isNow = nowSlot === x && mins >= sm && mins < em;
-          el.className = "slot" + (isNow ? " now" : "");
-          el.innerHTML =
-            '<div class="time">' + fmt(x.start) + '<br>to<br>' + fmt(x.end) + '</div>' +
-            '<div><span class="badge b-' + x.type + '">' + x.type + '</span>' +
-            (isNow ? ' <span class="badge b-Lecture">Now</span>' : '') +
-            '<div class="subject">' + x.subject + '</div>' +
-            '<div class="teachers">' + x.teachers.join(", ") + '</div></div>';
-        }
-        box.appendChild(el);
-      });
-
-      document.querySelectorAll(".tab").forEach(function (b) {
-        b.classList.toggle("active", b.dataset.day === day);
-      });
-    }
-
-    const tabs = document.getElementById("dayTabs");
-    DAY_NAMES.forEach(function (dn) {
-      const b = document.createElement("button");
-      b.className = "tab";
-      b.textContent = dn;
-      b.dataset.day = dn;
-      b.onclick = function () { renderDay(dn); };
-      tabs.appendChild(b);
-    });
-    renderDay(todayKey());
-
     if (!name || (role !== "staff" && role !== "student")) {
-      // Not logged in: show only Login
-      nav.innerHTML = '<a class="btn" href="index.html">Login</a>';
       document.getElementById("loginCard").hidden = false;
     } else {
-      // Logged in: hide Login, show the rest
-      nav.innerHTML =
-        '<a class="btn" href="dashboard.html">Dashboard</a>' +
-        '<a class="btn" href="#timetable">Weekly Timetable</a>' +
-        '<button class="btn" onclick="logout()">Logout</button>';
+      document.getElementById("home").hidden = false;
+      document.getElementById("welcome").textContent = name;
+      document.getElementById("meta").textContent =
+        userId + "  |  " + (role === "staff" ? "Staff" : "Student");
 
-      document.getElementById("welcomeCard").hidden = false;
-      document.getElementById("actionCard").hidden = false;
-      document.getElementById("timetable").hidden = false;
+      const isStaff = role === "staff";
 
-      document.getElementById("welcome").textContent = "Welcome, " + name + "!";
-      document.getElementById("loginType").textContent =
-        role === "staff" ? "Staff" : "Student";
+      const infoItems = [
+        ["Branch", CLASS_INFO.branch],
+        ["Sem", CLASS_INFO.sem],
+        ["Division", CLASS_INFO.division]
+      ];
+      if (!isStaff) {
+        infoItems.push(["Roll No.", sessionStorage.getItem("attendanceRoll") || "-"]);
+        infoItems.push(["Batch", sessionStorage.getItem("attendanceBatch") || "-"]);
+      }
+      infoItems.forEach(function (it) {
+        const box = document.createElement("div");
+        const label = document.createElement("small");
+        label.textContent = it[0];
+        box.append(label, document.createTextNode(it[1]));
+        document.getElementById("info").appendChild(box);
+      });
+      const tiles = [
+        ["📅", "Academic Calendar", "board.html?type=calendar"],
+        ["🕒", "Time Table", "timetable.html"],
+        ["✅", "Attendance", isStaff ? "qr-attendance.html" : "scan-attendance.html"],
+        ["📚", "LMS", "board.html?type=lms"],
+        ["🔔", "Notifications", "board.html?type=notice"]
+      ];
+      if (isStaff) tiles.push(["👩‍🎓", "Students", "students.html"]);
 
-      const actions = document.getElementById("actions");
+      const grid = document.getElementById("grid");
+      tiles.forEach(function (t) {
+        const a = document.createElement("a");
+        a.className = "tile";
+        a.href = t[2];
+        const icon = document.createElement("span");
+        icon.textContent = t[0];
+        a.append(icon, document.createTextNode(t[1]));
+        grid.appendChild(a);
+      });
 
-      if (role === "staff") {
-        actions.innerHTML =
-          '<a class="btn" href="qr-attendance.html">Generate QR for Lecture</a>';
+      if (isStaff) {
         watchToday(todayString(), null, function (n) {
           document.getElementById("todayCount").textContent = n;
         });
+        getStudents().then(function (l) {
+          document.getElementById("totalCount").textContent = l.length;
+        }).catch(function () {});
       } else {
         document.getElementById("totalBox").hidden = true;
         document.getElementById("todayLabel").textContent = "My Attendance Today";
-        actions.innerHTML =
-          '<a class="btn" href="scan-attendance.html">Scan Attendance QR</a>';
         watchToday(todayString(), userId, function (n) {
           document.getElementById("todayCount").textContent = n;
         });
