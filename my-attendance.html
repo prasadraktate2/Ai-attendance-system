@@ -1,1 +1,150 @@
- 
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Attendance</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, sans-serif; background: #f1f5f9; color: #172033; }
+    header { background: #000; color: #fff; padding: 16px; display: flex; align-items: center; gap: 14px; }
+    header a { color: #fff; text-decoration: none; font-size: 24px; }
+    header h1 { margin: 0; font-size: 22px; }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 14px; }
+    .card { background: #fff; border-radius: 14px; padding: 14px; margin-bottom: 14px; box-shadow: 0 2px 8px #00000012; }
+    .who { font-weight: bold; text-transform: uppercase; overflow-wrap: anywhere; }
+    .sub { color: #64748b; font-size: 14px; margin-top: 4px; }
+    .bar { height: 10px; background: #e2e8f0; border-radius: 6px; overflow: hidden; margin: 12px 0 4px; }
+    .bar div { height: 100%; background: #22c55e; width: 0; }
+    .pct { text-align: right; font-weight: bold; color: #16a34a; }
+    .sum { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; font-weight: bold; }
+    .p { color: #16a34a; } .a { color: #dc2626; } .n { color: #2563eb; } .w { color: #f59e0b; }
+    .sum span { float: right; color: #475569; }
+    .legend { font-weight: bold; margin-bottom: 10px; }
+    .scroll { overflow-x: auto; }
+    table { border-collapse: collapse; width: 100%; min-width: 360px; text-align: center; }
+    th { background: #f1f5f9; padding: 10px 6px; font-size: 14px; }
+    td { padding: 14px 6px; font-weight: bold; border-top: 1px solid #fff; }
+    td.date { text-align: center; background: #fff; font-size: 14px; border-top: 1px solid #e2e8f0; }
+    td.date small { display: block; font-weight: normal; color: #475569; }
+    .cP { background: #e9f5ea; color: #16a34a; }
+    .cA { background: #fde8ea; color: #dc2626; }
+    .cX { background: #fff; color: #334155; }
+    #msg { text-align: center; padding: 30px; color: #64748b; }
+  </style>
+</head>
+<body>
+  <header>
+    <a href="dashboard.html">&larr;</a>
+    <h1>Attendance</h1>
+  </header>
+
+  <div class="wrap">
+    <div id="msg">Loading...</div>
+
+    <div id="content" hidden>
+      <div class="card">
+        <div class="who" id="who"></div>
+        <div class="sub" id="sub"></div>
+        <div class="bar"><div id="barFill"></div></div>
+        <div class="pct" id="pct">0%</div>
+      </div>
+
+      <div class="card sum">
+        <div class="p">Present <span id="sP">0</span></div>
+        <div class="a">Absent <span id="sA">0</span></div>
+        <div class="w">Total Lectures <span id="sT">0</span></div>
+        <div class="n">Attended Days <span id="sD">0</span></div>
+      </div>
+
+      <div class="card">
+        <div class="legend">P = Present, A = Absent, - = No Lecture</div>
+        <div class="scroll"><table id="tbl"></table></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { getAllSessions, getStudentAttendance } from "./store.js";
+    import { CLASS_INFO } from "./timetable.js";
+
+    const role = (sessionStorage.getItem("attendanceRole") || "").toLowerCase();
+    const userId = sessionStorage.getItem("attendanceUserId");
+    const name = sessionStorage.getItem("attendanceUser");
+    const msg = document.getElementById("msg");
+
+    const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const DAY = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+    function fmt(ymd) {
+      const p = ymd.split("-");
+      const d = new Date(+p[0], +p[1] - 1, +p[2]);
+      return [String(d.getDate()).padStart(2, "0") + "-" + MON[d.getMonth()] + "-" + String(p[0]).slice(2), DAY[d.getDay()]];
+    }
+
+    if (role !== "student" || !userId) {
+      msg.innerHTML = 'Please log in as a student. <a href="index.html">Go to Login</a>';
+    } else {
+      load();
+    }
+
+    async function load() {
+      try {
+        const [sessions, mine] = await Promise.all([getAllSessions(), getStudentAttendance(userId)]);
+
+        // every lecture that happened = all sessions + any session this student has a record for
+        const allIds = new Set(sessions.map(s => s.id));
+        const presentIds = new Set(mine.map(r => r.sessionId));
+        presentIds.forEach(id => allIds.add(id));
+
+        const byDate = {};
+        Array.from(allIds).filter(id => /^\d{4}-\d{2}-\d{2}/.test(id)).sort().forEach(id => {
+          const d = id.slice(0, 10);
+          (byDate[d] = byDate[d] || []).push(id);
+        });
+
+        const dates = Object.keys(byDate).sort().reverse();
+        const slots = Math.max(5, ...dates.map(d => byDate[d].length));
+
+        let total = 0, present = 0, days = 0;
+        let html = "<tr><th>Date</th>";
+        for (let i = 1; i <= slots; i++) html += "<th>Slot<br>" + i + "</th>";
+        html += "</tr>";
+
+        dates.forEach(d => {
+          const ids = byDate[d];
+          let attendedToday = false;
+          const f = fmt(d);
+          html += '<tr><td class="date">' + f[0] + "<small>" + f[1] + "</small></td>";
+          for (let i = 0; i < slots; i++) {
+            if (i >= ids.length) { html += '<td class="cX">-</td>'; continue; }
+            total++;
+            if (presentIds.has(ids[i])) { present++; attendedToday = true; html += '<td class="cP">P</td>'; }
+            else { html += '<td class="cA">A</td>'; }
+          }
+          if (attendedToday) days++;
+          html += "</tr>";
+        });
+
+        const pct = total ? (present * 100 / total) : 0;
+        document.getElementById("who").textContent = name;
+        document.getElementById("sub").textContent =
+          CLASS_INFO.branch + "  |  Sem " + CLASS_INFO.sem + "  |  Div " + CLASS_INFO.division + "  |  " + userId;
+        document.getElementById("barFill").style.width = pct.toFixed(0) + "%";
+        document.getElementById("pct").textContent = pct.toFixed(2) + "%";
+        document.getElementById("sP").textContent = present + " / " + total;
+        document.getElementById("sA").textContent = (total - present) + " / " + total;
+        document.getElementById("sT").textContent = total;
+        document.getElementById("sD").textContent = days + " / " + dates.length;
+        document.getElementById("tbl").innerHTML = dates.length ? html
+          : "<tr><td>No attendance sessions yet.</td></tr>";
+
+        msg.hidden = true;
+        document.getElementById("content").hidden = false;
+      } catch (e) {
+        console.error(e);
+        msg.textContent = "Could not load attendance. Check your internet.";
+      }
+    }
+  </script>
+</body>
+</html>
