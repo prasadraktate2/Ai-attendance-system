@@ -1,1 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Smart Attendance - Dashboard</title>
 
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f1f5f9;
+      color: #172033;
+    }
+
+    nav {
+      background: white;
+      padding: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 12px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .btn {
+      display: inline-block;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 10px;
+      background: #2563eb;
+      color: white;
+      font-size: 16px;
+      font-weight: bold;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .card {
+      max-width: 700px;
+      margin: 16px auto;
+      padding: 20px;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 4px 15px #00000010;
+    }
+
+    h1, h2 { color: #172554; margin-top: 0; }
+
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .stat {
+      background: #dbeafe;
+      border-radius: 14px;
+      padding: 18px;
+      min-height: 120px;
+    }
+
+    .stat p { margin: 0 0 12px; font-weight: bold; color: #172554; }
+    .stat .value { font-size: 32px; font-weight: bold; color: #172554; }
+
+    .actions { display: flex; flex-direction: column; gap: 12px; }
+    .actions .btn { text-align: center; }
+
+    .note { color: #64748b; font-size: 14px; line-height: 1.5; }
+  </style>
+</head>
+
+<body>
+  <nav id="nav"></nav>
+
+  <div class="card" id="welcomeCard" hidden>
+    <h1 id="welcome"></h1>
+
+    <div class="stats">
+      <div class="stat" id="totalBox">
+        <p>Total Students</p>
+        <div class="value">106</div>
+      </div>
+      <div class="stat">
+        <p id="todayLabel">Attendance Today</p>
+        <div class="value" id="todayCount">0</div>
+      </div>
+      <div class="stat">
+        <p>Login Type</p>
+        <div class="value" id="loginType"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="actionCard" hidden>
+    <h2>Attendance</h2>
+    <div class="actions" id="actions"></div>
+  </div>
+
+  <div class="card" id="timetable" hidden>
+    <h2>Weekly Timetable</h2>
+    <p class="note">Timetable section will be added in the next step.</p>
+  </div>
+
+  <div class="card" id="loginCard" hidden>
+    <h2>Please log in</h2>
+    <p class="note">You need to log in to see the dashboard.</p>
+    <a class="btn" href="index.html">Go to Login</a>
+  </div>
+
+  <script type="module">
+    import { watchToday } from "./store.js";
+
+    const name = sessionStorage.getItem("attendanceUser");
+    const role = (sessionStorage.getItem("attendanceRole") || "").toLowerCase();
+    const userId = sessionStorage.getItem("attendanceUserId");
+    const nav = document.getElementById("nav");
+
+    function todayString() {
+      const d = new Date();
+      return d.getFullYear() + "-" +
+        String(d.getMonth() + 1).padStart(2, "0") + "-" +
+        String(d.getDate()).padStart(2, "0");
+    }
+
+    function logout() {
+      sessionStorage.clear();
+      window.location.href = "index.html";
+    }
+    window.logout = logout;
+
+    if (!name || (role !== "staff" && role !== "student")) {
+      // Not logged in: show only Login
+      nav.innerHTML = '<a class="btn" href="index.html">Login</a>';
+      document.getElementById("loginCard").hidden = false;
+    } else {
+      // Logged in: hide Login, show the rest
+      nav.innerHTML =
+        '<a class="btn" href="dashboard.html">Dashboard</a>' +
+        '<a class="btn" href="#timetable">Weekly Timetable</a>' +
+        '<button class="btn" onclick="logout()">Logout</button>';
+
+      document.getElementById("welcomeCard").hidden = false;
+      document.getElementById("actionCard").hidden = false;
+      document.getElementById("timetable").hidden = false;
+
+      document.getElementById("welcome").textContent = "Welcome, " + name + "!";
+      document.getElementById("loginType").textContent =
+        role === "staff" ? "Staff" : "Student";
+
+      const actions = document.getElementById("actions");
+
+      if (role === "staff") {
+        actions.innerHTML =
+          '<a class="btn" href="qr-attendance.html">Generate QR for Lecture</a>';
+        watchToday(todayString(), null, function (n) {
+          document.getElementById("todayCount").textContent = n;
+        });
+      } else {
+        document.getElementById("totalBox").hidden = true;
+        document.getElementById("todayLabel").textContent = "My Attendance Today";
+        actions.innerHTML =
+          '<a class="btn" href="scan-attendance.html">Scan Attendance QR</a>';
+        watchToday(todayString(), userId, function (n) {
+          document.getElementById("todayCount").textContent = n;
+        });
+      }
+    }
+  </script>
+</body>
+</html>
