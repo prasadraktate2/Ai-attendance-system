@@ -69,6 +69,33 @@
     .actions .btn { text-align: center; }
 
     .note { color: #64748b; font-size: 14px; line-height: 1.5; }
+
+    .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+    .tab {
+      padding: 8px 14px; border: none; border-radius: 20px;
+      background: #e2e8f0; color: #172033; font-weight: bold; cursor: pointer;
+    }
+    .tab.active { background: #172554; color: white; }
+
+    .slot {
+      display: flex; gap: 12px; padding: 12px; margin-bottom: 10px;
+      border: 1px solid #e2e8f0; border-radius: 12px; background: white;
+    }
+    .slot.now { border: 2px solid #2563eb; background: #eff6ff; }
+    .time { min-width: 92px; font-size: 13px; color: #475569; }
+    .badge {
+      display: inline-block; padding: 3px 8px; border-radius: 6px;
+      font-size: 12px; font-weight: bold; margin-bottom: 6px;
+    }
+    .b-Lecture { background: #cffafe; color: #0e7490; }
+    .b-Lab { background: #fee2e2; color: #b91c1c; }
+    .b-Other { background: #f3e8ff; color: #7e22ce; }
+    .subject { font-weight: bold; color: #0f172a; }
+    .teachers { font-size: 13px; color: #475569; margin-top: 4px; }
+    .recess {
+      text-align: center; padding: 10px; margin-bottom: 10px; border-radius: 12px;
+      background: #f7fee7; color: #ca8a04; font-weight: bold;
+    }
   </style>
 </head>
 
@@ -101,7 +128,8 @@
 
   <div class="card" id="timetable" hidden>
     <h2>Weekly Timetable</h2>
-    <p class="note">Timetable section will be added in the next step.</p>
+    <div class="tabs" id="dayTabs"></div>
+    <div id="slots"></div>
   </div>
 
   <div class="card" id="loginCard" hidden>
@@ -112,6 +140,7 @@
 
   <script type="module">
     import { watchToday } from "./store.js";
+    import { DAY_NAMES, TIMETABLE, todayKey, fmt, currentIndex } from "./timetable.js";
 
     const name = sessionStorage.getItem("attendanceUser");
     const role = (sessionStorage.getItem("attendanceRole") || "").toLowerCase();
@@ -130,6 +159,51 @@
       window.location.href = "index.html";
     }
     window.logout = logout;
+
+    function renderDay(day) {
+      const list = TIMETABLE[day];
+      const lectures = list.filter(function (x) { return x.type !== "Recess"; });
+      const nowSlot = day === todayKey() ? lectures[currentIndex(lectures)] : null;
+      const box = document.getElementById("slots");
+      box.innerHTML = "";
+
+      list.forEach(function (x) {
+        const el = document.createElement("div");
+        if (x.type === "Recess") {
+          el.className = "recess";
+          el.textContent = "RECESS";
+        } else {
+          const t = new Date();
+          const mins = t.getHours() * 60 + t.getMinutes();
+          const sm = Number(x.start.slice(0, 2)) * 60 + Number(x.start.slice(3));
+          const em = Number(x.end.slice(0, 2)) * 60 + Number(x.end.slice(3));
+          const isNow = nowSlot === x && mins >= sm && mins < em;
+          el.className = "slot" + (isNow ? " now" : "");
+          el.innerHTML =
+            '<div class="time">' + fmt(x.start) + '<br>to<br>' + fmt(x.end) + '</div>' +
+            '<div><span class="badge b-' + x.type + '">' + x.type + '</span>' +
+            (isNow ? ' <span class="badge b-Lecture">Now</span>' : '') +
+            '<div class="subject">' + x.subject + '</div>' +
+            '<div class="teachers">' + x.teachers.join(", ") + '</div></div>';
+        }
+        box.appendChild(el);
+      });
+
+      document.querySelectorAll(".tab").forEach(function (b) {
+        b.classList.toggle("active", b.dataset.day === day);
+      });
+    }
+
+    const tabs = document.getElementById("dayTabs");
+    DAY_NAMES.forEach(function (dn) {
+      const b = document.createElement("button");
+      b.className = "tab";
+      b.textContent = dn;
+      b.dataset.day = dn;
+      b.onclick = function () { renderDay(dn); };
+      tabs.appendChild(b);
+    });
+    renderDay(todayKey());
 
     if (!name || (role !== "staff" && role !== "student")) {
       // Not logged in: show only Login
