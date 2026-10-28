@@ -1,7 +1,7 @@
 // ===== SWITCH: false = DEMO (saves in this browser only), true = Firebase =====
 export const USE_FIREBASE = true;
 
-const firebaseConfig = {
+export const firebaseConfig = {
   apiKey: "AIzaSyBVLCOEYS4mDX3Os-Aryup9_rEKjVGz8jc",
   authDomain: "ai-attendance-system-ce9ec.firebaseapp.com",
   projectId: "ai-attendance-system-ce9ec",
