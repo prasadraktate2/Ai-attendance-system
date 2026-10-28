@@ -1,1 +1,104 @@
- 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Time Table</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, sans-serif; background: #f1f5f9; color: #172033; }
+    header { background: #000; color: white; padding: 16px; display: flex; gap: 14px; align-items: center; }
+    header a { color: white; text-decoration: none; font-size: 24px; }
+    header h1 { margin: 0; font-size: 20px; }
+    .wrap { max-width: 700px; margin: 0 auto; padding: 16px; }
+    .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+    .tab { padding: 8px 14px; border: none; border-radius: 20px; background: #e2e8f0; font-weight: bold; cursor: pointer; }
+    .tab.active { background: #000; color: white; }
+    .slot { display: flex; gap: 12px; padding: 12px; margin-bottom: 10px; border: 1px solid #e2e8f0; border-radius: 12px; background: white; }
+    .slot.now { border: 2px solid #2563eb; background: #eff6ff; }
+    .time { min-width: 92px; font-size: 13px; color: #475569; }
+    .badge { display: inline-block; padding: 3px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; margin: 0 4px 6px 0; }
+    .b-Lecture { background: #cffafe; color: #0e7490; }
+    .b-Lab { background: #fee2e2; color: #b91c1c; }
+    .b-Other { background: #f3e8ff; color: #7e22ce; }
+    .subject { font-weight: bold; }
+    .teachers { font-size: 13px; color: #475569; margin-top: 4px; }
+    .recess { text-align: center; padding: 10px; margin-bottom: 10px; border-radius: 12px; background: #f7fee7; color: #ca8a04; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <header><a href="dashboard.html">←</a><h1>Time Table</h1></header>
+  <div class="wrap">
+    <div class="tabs" id="tabs"></div>
+    <div id="slots"></div>
+  </div>
+
+  <script type="module">
+    import { DAY_NAMES, TIMETABLE, todayKey, fmt, currentIndex } from "./timetable.js";
+
+    function mins(t) { return Number(t.slice(0, 2)) * 60 + Number(t.slice(3)); }
+
+    function renderDay(day) {
+      const list = TIMETABLE[day];
+      const lectures = list.filter(function (x) { return x.type !== "Recess"; });
+      const nowSlot = day === todayKey() ? lectures[currentIndex(lectures)] : null;
+      const d = new Date();
+      const now = d.getHours() * 60 + d.getMinutes();
+      const box = document.getElementById("slots");
+      box.innerHTML = "";
+
+      list.forEach(function (x) {
+        const el = document.createElement("div");
+        if (x.type === "Recess") {
+          el.className = "recess";
+          el.textContent = "RECESS";
+        } else {
+          const isNow = nowSlot === x && now >= mins(x.start) && now < mins(x.end);
+          el.className = "slot" + (isNow ? " now" : "");
+
+          const time = document.createElement("div");
+          time.className = "time";
+          time.innerHTML = fmt(x.start) + "<br>to<br>" + fmt(x.end);
+
+          const info = document.createElement("div");
+          const badge = document.createElement("span");
+          badge.className = "badge b-" + x.type;
+          badge.textContent = x.type;
+          info.appendChild(badge);
+          if (isNow) {
+            const n = document.createElement("span");
+            n.className = "badge b-Lecture";
+            n.textContent = "Now";
+            info.appendChild(n);
+          }
+          const sub = document.createElement("div");
+          sub.className = "subject";
+          sub.textContent = x.subject;
+          const t = document.createElement("div");
+          t.className = "teachers";
+          t.textContent = x.teachers.join(", ");
+          info.append(sub, t);
+
+          el.append(time, info);
+        }
+        box.appendChild(el);
+      });
+
+      document.querySelectorAll(".tab").forEach(function (b) {
+        b.classList.toggle("active", b.dataset.day === day);
+      });
+    }
+
+    const tabs = document.getElementById("tabs");
+    DAY_NAMES.forEach(function (dn) {
+      const b = document.createElement("button");
+      b.className = "tab";
+      b.textContent = dn;
+      b.dataset.day = dn;
+      b.onclick = function () { renderDay(dn); };
+      tabs.appendChild(b);
+    });
+    renderDay(todayKey());
+  </script>
+</body>
+</html>
