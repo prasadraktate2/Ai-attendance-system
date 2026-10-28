@@ -77,38 +77,73 @@
     <label for="userId">ID</label>
     <input id="userId" type="text" placeholder="Enter your ID">
 
-    <label for="userName">Full Name</label>
+    <label for="userName">Full Name (staff)</label>
     <input id="userName" type="text" placeholder="Enter your full name">
+
+    <label for="password">Password (students)</label>
+    <input id="password" type="password" placeholder="Password given by your teacher">
 
     <button onclick="login()">Login</button>
     <p id="loginMessage"></p>
   </div>
 
-  <script>
-    function login() {
-      const id = document.getElementById('userId').value.trim();
-      const name = document.getElementById('userName').value.trim();
+  <script type="module">
+    import { getStudent, getStudents } from "./store.js";
+
+    window.login = async function () {
+      const id = document.getElementById('userId').value.trim().toUpperCase();
+      let name = document.getElementById('userName').value.trim();
+      let roll = '';
+      let batch = '';
       const role = document.getElementById('role').value.trim().toLowerCase();
 
       const message = document.getElementById('loginMessage');
-
-      if (!id || !name) {
-        message.textContent = 'Please enter your ID and full name.';
-        return;
-      }
 
       if (role !== 'staff' && role !== 'student') {
         message.textContent = 'Please select Staff or Student.';
         return;
       }
 
+      if (!id) {
+        message.textContent = 'Please enter your ID.';
+        return;
+      }
+
+      if (role === 'student') {
+        try {
+          const roster = await getStudents();
+          if (roster.length > 0) {
+            const found = await getStudent(id);
+            const typed = document.getElementById('password').value.trim().toUpperCase();
+            if (!found || !found.password ||
+                found.password.toUpperCase() !== typed) {
+              message.textContent = 'Wrong ID or password.';
+              return;
+            }
+            name = found.name;
+            roll = found.roll || '';
+            batch = found.batch || '';
+          }
+        } catch (e) {
+          console.error(e);
+          message.textContent = 'Could not check your ID. Check your internet.';
+          return;
+        }
+      }
+
+      if (!name) {
+        message.textContent = 'Please enter your full name.';
+        return;
+      }
+
       sessionStorage.setItem('attendanceUser', name);
       sessionStorage.setItem('attendanceRole', role);
       sessionStorage.setItem('attendanceUserId', id);
+      sessionStorage.setItem('attendanceRoll', roll);
+      sessionStorage.setItem('attendanceBatch', batch);
 
       window.location.href = './dashboard.html';
-    }
+    };
   </script>
 </body>
 </html>
-
