@@ -29,11 +29,8 @@
       <option value="student">Student</option>
     </select>
 
-    <label for="userId">ID (staff: email)</label>
+    <label for="userId" id="idLabel">ID (staff: email)</label>
     <input id="userId" type="text" placeholder="Student ID or staff email">
-
-    <label for="userName">Full Name (staff)</label>
-    <input id="userName" type="text" placeholder="Enter your full name">
 
     <label for="password">Password</label>
     <input id="password" type="password" placeholder="Enter your password">
@@ -43,20 +40,35 @@
   </div>
 
   <script type="module">
-    import { getStudent, getStudents, firebaseConfig } from "./store.js";
+    import { getStudent, firebaseConfig } from "./store.js";
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import { getAuth, signInWithEmailAndPassword }
       from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
+    document.getElementById('role').addEventListener('change', function () {
+      const idLabel = document.getElementById('idLabel');
+      const idBox = document.getElementById('userId');
+      if (this.value === 'staff') {
+        idLabel.textContent = 'Staff Email';
+        idBox.placeholder = 'Enter staff email';
+      } else if (this.value === 'student') {
+        idLabel.textContent = 'Student ID';
+        idBox.placeholder = 'Enter student ID';
+      } else {
+        idLabel.textContent = 'ID (staff: email)';
+        idBox.placeholder = 'Student ID or staff email';
+      }
+    });
+
     window.login = async function () {
       const rawId = document.getElementById('userId').value.trim();
       const id = rawId.toUpperCase();
-      let name = document.getElementById('userName').value.trim();
       const pass = document.getElementById('password').value;
-      let roll = '';
-      let batch = '';
       const role = document.getElementById('role').value.trim().toLowerCase();
       const message = document.getElementById('loginMessage');
+      let name = '';
+      let roll = '';
+      let batch = '';
       message.textContent = '';
 
       if (role !== 'staff' && role !== 'student') {
@@ -64,7 +76,9 @@
         return;
       }
       if (!rawId) {
-        message.textContent = 'Please enter your ID (staff: email).';
+        message.textContent = role === 'staff'
+          ? 'Please enter the staff email.'
+          : 'Please enter the student ID.';
         return;
       }
       if (!pass) {
@@ -81,7 +95,7 @@
           message.textContent = 'Wrong staff email or password.';
           return;
         }
-        if (!name) name = 'Staff';
+        name = 'Staff';
       }
 
       if (role === 'student') {
