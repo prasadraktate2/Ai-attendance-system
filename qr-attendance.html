@@ -1,1 +1,354 @@
- 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Smart Attendance - QR Generator</title>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 16px;
+      font-family: Arial, sans-serif;
+      background: #f1f5f9;
+      color: #172033;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 20px auto;
+      padding: 24px;
+      background: white;
+      border-radius: 14px;
+      box-shadow: 0 4px 15px #00000010;
+      text-align: center;
+    }
+
+    h1 { color: #123b73; }
+
+    label {
+      display: block;
+      text-align: left;
+      margin: 14px 0 6px;
+      font-weight: bold;
+    }
+
+    select, button {
+      width: 100%;
+      padding: 12px;
+      border-radius: 7px;
+      font-size: 16px;
+    }
+
+    select {
+      border: 1px solid #cbd5e1;
+      background: white;
+    }
+
+    button {
+      margin-top: 12px;
+      border: none;
+      background: #123b73;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .stop { background: #b91c1c; }
+
+    #qr {
+      display: flex;
+      justify-content: center;
+      margin: 22px auto;
+      min-height: 10px;
+    }
+
+    #status {
+      font-weight: bold;
+      overflow-wrap: anywhere;
+    }
+
+    #countdown {
+      font-size: 18px;
+      color: #123b73;
+      font-weight: bold;
+    }
+
+    #present {
+      display: inline-block;
+      margin-top: 6px;
+      padding: 8px 16px;
+      border-radius: 8px;
+      background: #dbeafe;
+      color: #123b73;
+      font-weight: bold;
+      font-size: 18px;
+    }
+
+    .note {
+      color: #64748b;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    a { color: #123b73; }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>📷 AI Smart Attendance</h1>
+    <h2>QR Attendance Generator</h2>
+    <p>Staff can generate a QR code for a classroom lecture.</p>
+
+    <label for="subject">Select Subject</label>
+    <select id="subject">
+      <option>Chemistry</option>
+      <option>Engineering Mathematics-I</option>
+      <option>Environmental Science</option>
+      <option>Computational Thinking &amp; Problem Solving</option>
+      <option>Physics</option>
+      <option>Communication</option>
+      <option>Verbal Communication Skills</option>
+      <option>Computer Workshop Practice</option>
+      <option>Introduction to AI Tools</option>
+      <option>Yoga and Meditation</option>
+      <option>Mandatory Course-I</option>
+    </select>
+
+    <label for="lecture">Lecture Number</label>
+    <select id="lecture">
+      <option value="1">Lecture 1</option>
+      <option value="2">Lecture 2</option>
+      <option value="3">Lecture 3</option>
+      <option value="4">Lecture 4</option>
+      <option value="5">Lecture 5</option>
+    </select>
+
+    <button id="generateBtn" onclick="generateQR()">
+      Generate QR Code
+    </button>
+
+    <button id="stopBtn" class="stop" onclick="stopQR()" hidden>
+      Stop QR
+    </button>
+
+    <div id="qr"></div>
+    <p id="status">Select a subject and lecture to begin.</p>
+    <p id="countdown"></p>
+    <div id="present" hidden>Present: 0</div>
+
+    <div id="demoBox" hidden>
+      <p class="note">DEMO MODE: copy this QR text and paste it in the scan page.</p>
+      <textarea id="demoText" readonly rows="3" style="width:100%;font-size:12px;"></textarea>
+    </div>
+
+    <p class="note">
+      QR changes every 10 seconds. Student scans are counted live.
+    </p>
+
+    <p><a href="dashboard.html">← Back to Dashboard</a></p>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+  <script type="module">
+    import { USE_FIREBASE, saveSession, watchPresent } from "./store.js";
+
+    let refreshTimer = null;
+    let countdownTimer = null;
+    let unsubscribePresent = null;
+    let expiresAt = 0;
+    let running = false;
+    let sessionId = null;
+    let currentToken = null;
+
+    const statusBox = document.getElementById("status");
+    const qrBox = document.getElementById("qr");
+    const countdownBox = document.getElementById("countdown");
+    const presentBox = document.getElementById("present");
+    const demoBox = document.getElementById("demoBox");
+    const demoText = document.getElementById("demoText");
+    const generateBtn = document.getElementById("generateBtn");
+    const stopBtn = document.getElementById("stopBtn");
+
+    function checkStaff() {
+      const role = (sessionStorage.getItem("attendanceRole") || "").toLowerCase();
+      const user = sessionStorage.getItem("attendanceUser");
+
+      if (!user || role !== "staff") {
+        document.querySelector(".container").innerHTML =
+          '<h1>Staff Login Required</h1>' +
+          '<p>Please log in using the Staff option.</p>' +
+          '<p><a href="index.html">Go to Login</a></p>';
+        return false;
+      }
+      return true;
+    }
+
+    function randomToken() {
+      const bytes = new Uint8Array(8);
+      crypto.getRandomValues(bytes);
+      return Array.from(bytes, b => b.toString(16).padStart(2, "0")).join("");
+    }
+
+    function todayString() {
+      const d = new Date();
+      return d.getFullYear() + "-" +
+        String(d.getMonth() + 1).padStart(2, "0") + "-" +
+        String(d.getDate()).padStart(2, "0");
+    }
+
+    function slug(text) {
+      return text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    }
+
+    async function generateQR() {
+      if (!checkStaff()) return;
+
+      if (typeof QRCode === "undefined") {
+        statusBox.textContent = "QR library did not load. Check your internet connection.";
+        return;
+      }
+
+      await stopQR(true);
+
+      running = true;
+      generateBtn.disabled = true;
+      stopBtn.hidden = false;
+
+      const subject = document.getElementById("subject").value;
+      const lecture = document.getElementById("lecture").value;
+      const date = todayString();
+      sessionId = date + "_L" + lecture + "_" + slug(subject);
+
+      try {
+        await saveSession(sessionId, {
+          subject: subject,
+          lecture: Number(lecture),
+          date: date,
+          staffName: sessionStorage.getItem("attendanceUser"),
+          staffId: sessionStorage.getItem("attendanceUserId"),
+          startedAt: Date.now(),
+          active: true,
+          token: "",
+          prevToken: "",
+          tokenExpiresAt: 0
+        });
+      } catch (e) {
+        console.error(e);
+        statusBox.textContent = "Could not start session. Check Firebase setup.";
+        running = false;
+        generateBtn.disabled = false;
+        stopBtn.hidden = true;
+        return;
+      }
+
+      presentBox.hidden = false;
+      unsubscribePresent = watchPresent(sessionId, function (n) {
+        presentBox.textContent = "Present: " + n;
+      });
+
+      async function refreshCode() {
+        if (!running) return;
+
+        const now = Date.now();
+        const newToken = randomToken();
+        const prev = currentToken || "";
+        expiresAt = now + 10000;
+
+        try {
+          await saveSession(sessionId, {
+            token: newToken,
+            prevToken: prev,
+            tokenExpiresAt: expiresAt
+          });
+        } catch (e) {
+          console.error(e);
+          statusBox.textContent = "Could not update QR. Check your internet.";
+          return;
+        }
+
+        currentToken = newToken;
+        const text = JSON.stringify({ s: sessionId, t: newToken });
+
+        qrBox.innerHTML = "";
+        new QRCode(qrBox, {
+          text: text,
+          width: 220,
+          height: 220,
+          correctLevel: QRCode.CorrectLevel.M
+        });
+
+        if (!USE_FIREBASE) {
+          demoBox.hidden = false;
+          demoText.value = text;
+        }
+
+        statusBox.textContent = "QR active for " + subject + " — Lecture " + lecture;
+      }
+
+      await refreshCode();
+      refreshTimer = setInterval(refreshCode, 10000);
+
+      countdownTimer = setInterval(function () {
+        if (!running) return;
+        const remaining = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
+        countdownBox.textContent = "Next QR refresh in: " + remaining + " seconds";
+      }, 250);
+    }
+
+    async function stopQR(silent) {
+      const endingId = sessionId;
+
+      running = false;
+      clearInterval(refreshTimer);
+      clearInterval(countdownTimer);
+      if (unsubscribePresent) unsubscribePresent();
+
+      refreshTimer = null;
+      countdownTimer = null;
+      unsubscribePresent = null;
+      expiresAt = 0;
+      currentToken = null;
+      sessionId = null;
+
+      generateBtn.disabled = false;
+      stopBtn.hidden = true;
+      qrBox.innerHTML = "";
+      countdownBox.textContent = "";
+      demoBox.hidden = true;
+
+      if (endingId) {
+        try {
+          await saveSession(endingId, {
+            active: false,
+            token: "",
+            prevToken: "",
+            tokenExpiresAt: 0,
+            endedAt: Date.now()
+          });
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      if (!silent) {
+        statusBox.textContent = "QR stopped. Generate a new QR to continue.";
+      }
+    }
+
+    window.generateQR = generateQR;
+    window.stopQR = stopQR;
+
+    checkStaff();
+  </script>
+</body>
+</html>
