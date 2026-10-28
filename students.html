@@ -1,1 +1,356 @@
- 
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Smart Attendance - Students</title>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 16px;
+      font-family: Arial, sans-serif;
+      background: #f1f5f9;
+      color: #172033;
+    }
+
+    .card {
+      max-width: 700px;
+      margin: 16px auto;
+      padding: 20px;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 4px 15px #00000010;
+    }
+
+    h1, h2 { color: #172554; margin-top: 0; }
+
+    label { display: block; margin: 12px 0 6px; font-weight: bold; }
+
+    input, textarea, button {
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 16px;
+    }
+
+    input, textarea { border: 1px solid #cbd5e1; }
+
+    button {
+      margin-top: 12px;
+      border: none;
+      background: #2563eb;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .gray { background: #475569; }
+
+    .note { color: #64748b; font-size: 13px; line-height: 1.5; }
+    #msg { font-weight: bold; margin-top: 12px; overflow-wrap: anywhere; }
+    .ok { color: #166534; }
+    .bad { color: #b91c1c; }
+
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .row .id { min-width: 70px; font-weight: bold; color: #172554; }
+    .row .nm { flex: 1; overflow-wrap: anywhere; }
+    .pw { font-family: monospace; font-size: 13px; color: #475569; margin-top: 2px; }
+    .row .key { background: #dbeafe; color: #123b73; }
+
+    .row button {
+      width: auto;
+      margin: 0;
+      padding: 6px 12px;
+      background: #fee2e2;
+      color: #b91c1c;
+    }
+
+    a { color: #123b73; }
+  </style>
+</head>
+
+<body>
+  <script>
+    // Shows an error on screen if something fails to load.
+    window.addEventListener("error", function (e) {
+      var b = document.createElement("div");
+      b.style.cssText = "background:#fee2e2;color:#991b1b;padding:12px;margin:8px;border-radius:8px;font-weight:bold;overflow-wrap:anywhere";
+      b.textContent = "Error: " + (e.message || "could not load a file (check store.js)");
+      document.body.prepend(b);
+    });
+  </script>
+  <div class="card" id="mainCard">
+    <h1>👩‍🎓 Students</h1>
+    <p class="note">Add all students here. ID (username) and password are created automatically (S001, S002 ...). Give each student their ID and password.</p>
+
+    <h2>Add many students at once</h2>
+    <p class="note">
+      Paste one student per line.<br>
+      Only name: <b>Rohit Sharma</b> (ID is created automatically)<br>
+      With your own ID: <b>2126UIDM1001, Rohit Sharma</b><br>
+      With roll no. and batch: <b>2126UIDM1001, Rohit Sharma, 12, Batch - A</b>
+    </p>
+    <textarea id="bulk" rows="8" placeholder="Rohit Sharma&#10;Priya Patil&#10;Amit Jadhav"></textarea>
+    <button onclick="addBulk()">Add Students</button>
+
+    <h2 style="margin-top:24px">Add one student</h2>
+    <label for="oneId">ID (optional)</label>
+    <input id="oneId" type="text" placeholder="Leave empty to create automatically">
+    <label for="oneName">Full Name</label>
+    <input id="oneName" type="text" placeholder="Student full name">
+    <button onclick="addOne()">Add Student</button>
+
+    <p id="msg"></p>
+  </div>
+
+  <div class="card" id="listCard">
+    <h2>Student List (<span id="count">0</span>)</h2>
+    <input id="search" type="text" placeholder="Search name or ID">
+    <button class="gray" onclick="downloadCsv()">Download Login List (CSV)</button>
+    <button onclick="fillMissing()">Create Missing Passwords</button>
+    <div id="list"></div>
+  </div>
+
+  <p style="text-align:center"><a href="dashboard.html">← Back to Dashboard</a></p>
+
+  <script type="module">
+    import { saveStudents, getStudents, deleteStudent } from "./store.js";
+
+    const role = (sessionStorage.getItem("attendanceRole") || "").toLowerCase();
+    const msg = document.getElementById("msg");
+    let students = [];
+
+    if (role !== "staff") {
+      document.getElementById("mainCard").innerHTML =
+        '<h1>Staff Login Required</h1><p><a href="index.html">Go to Login</a></p>';
+      document.getElementById("listCard").hidden = true;
+    }
+
+    function show(type, text) {
+      msg.className = type;
+      msg.textContent = text;
+    }
+
+    function nextIdNumber() {
+      let max = 0;
+      students.forEach(function (s) {
+        const m = /^S(\d+)$/.exec(s.id);
+        if (m) max = Math.max(max, Number(m[1]));
+      });
+      return max + 1;
+    }
+
+    function makeId(n) {
+      return "S" + String(n).padStart(3, "0");
+    }
+
+    // 6 characters, no confusing letters (0/O, 1/I)
+    function genPassword() {
+      const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+      const bytes = new Uint8Array(6);
+      crypto.getRandomValues(bytes);
+      return Array.from(bytes, function (b) { return chars[b % chars.length]; }).join("");
+    }
+
+    function cleanName(t) {
+      return t.replace(/\s+/g, " ").trim();
+    }
+
+    // Reads pasted lines into [{id (may be ""), name}]
+    function parseLines(text) {
+      const out = [];
+      text.split(/\r?\n/).forEach(function (line) {
+        line = line.trim();
+        if (!line) return;
+        let id = "";
+        let name = line;
+        let roll = "";
+        let batch = "";
+        const parts = line.split(/[,\t]/);
+        if (parts.length >= 2 && /^[A-Za-z]*\d[A-Za-z0-9-]*$/.test(parts[0].trim())) {
+          id = parts[0].trim().toUpperCase();
+          name = parts[1];
+          roll = (parts[2] || "").trim();
+          batch = (parts[3] || "").trim();
+        }
+        name = cleanName(name);
+        if (name) out.push({ id: id, name: name, roll: roll, batch: batch });
+      });
+      return out;
+    }
+
+    async function addStudents(items) {
+      const have = new Set(students.map(function (s) { return s.id; }));
+      let n = nextIdNumber();
+      const toSave = [];
+      let skipped = 0;
+
+      items.forEach(function (it) {
+        let id = it.id;
+        if (!id) {
+          while (have.has(makeId(n))) n++;
+          id = makeId(n);
+          n++;
+        }
+        if (have.has(id)) { skipped++; return; }
+        have.add(id);
+        toSave.push({ id: id, name: it.name, password: genPassword(),
+          roll: it.roll || "", batch: it.batch || "" });
+      });
+
+      if (toSave.length) await saveStudents(toSave);
+      await reload();
+
+      let text = "Added " + toSave.length + " student(s).";
+      if (skipped) text += " Skipped " + skipped + " (ID already exists).";
+      show(toSave.length ? "ok" : "bad", text);
+    }
+
+    async function addBulk() {
+      const items = parseLines(document.getElementById("bulk").value);
+      if (!items.length) { show("bad", "Please paste student names."); return; }
+      try {
+        await addStudents(items);
+        document.getElementById("bulk").value = "";
+      } catch (e) {
+        console.error(e);
+        show("bad", "Could not save. Check Firebase setup.");
+      }
+    }
+
+    async function addOne() {
+      const id = document.getElementById("oneId").value.trim().toUpperCase();
+      const name = cleanName(document.getElementById("oneName").value);
+      if (!name) { show("bad", "Please enter the student name."); return; }
+      try {
+        await addStudents([{ id: id, name: name }]);
+        document.getElementById("oneId").value = "";
+        document.getElementById("oneName").value = "";
+      } catch (e) {
+        console.error(e);
+        show("bad", "Could not save. Check Firebase setup.");
+      }
+    }
+
+    async function resetPw(id) {
+      const s = students.find(function (x) { return x.id === id; });
+      if (!s) return;
+      const password = genPassword();
+      try {
+        await saveStudents([Object.assign({}, s, { password: password })]);
+        await reload();
+        show("ok", "New password for " + id + ": " + password);
+      } catch (e) {
+        console.error(e);
+        show("bad", "Could not save.");
+      }
+    }
+
+    async function fillMissing() {
+      const missing = students.filter(function (s) { return !s.password; });
+      if (!missing.length) { show("ok", "Everyone already has a password."); return; }
+      try {
+        await saveStudents(missing.map(function (s) {
+          return Object.assign({}, s, { password: genPassword() });
+        }));
+        await reload();
+        show("ok", "Passwords created for " + missing.length + " student(s).");
+      } catch (e) {
+        console.error(e);
+        show("bad", "Could not save.");
+      }
+    }
+
+    async function remove(id) {
+      if (!confirm("Delete " + id + "?")) return;
+      try {
+        await deleteStudent(id);
+        await reload();
+        show("ok", id + " deleted.");
+      } catch (e) {
+        console.error(e);
+        show("bad", "Could not delete.");
+      }
+    }
+
+    function render() {
+      const q = document.getElementById("search").value.trim().toLowerCase();
+      const box = document.getElementById("list");
+      box.innerHTML = "";
+      document.getElementById("count").textContent = students.length;
+
+      students.filter(function (s) {
+        return !q || s.id.toLowerCase().includes(q) || s.name.toLowerCase().includes(q);
+      }).forEach(function (s) {
+        const row = document.createElement("div");
+        row.className = "row";
+
+        const id = document.createElement("span");
+        id.className = "id";
+        id.textContent = s.id;
+
+        const nm = document.createElement("span");
+        nm.className = "nm";
+        nm.textContent = s.name;
+        const pw = document.createElement("div");
+        pw.className = "pw";
+        pw.textContent = "Password: " + (s.password || "(not set)") +
+          (s.roll ? "  |  Roll: " + s.roll : "") +
+          (s.batch ? "  |  Batch: " + s.batch : "");
+        nm.appendChild(pw);
+
+        const key = document.createElement("button");
+        key.className = "key";
+        key.textContent = "🔑";
+        key.title = "New password";
+        key.onclick = function () { resetPw(s.id); };
+
+        const del = document.createElement("button");
+        del.textContent = "✕";
+        del.onclick = function () { remove(s.id); };
+
+        row.append(id, nm, key, del);
+        box.appendChild(row);
+      });
+    }
+
+    async function reload() {
+      students = await getStudents();
+      render();
+    }
+
+    function downloadCsv() {
+      const lines = ["ID,Name,Password,Roll No,Batch"].concat(students.map(function (s) {
+        return s.id + ',"' + s.name.replace(/"/g, '""') + '",' + (s.password || "") +
+          "," + (s.roll || "") + "," + (s.batch || "");
+      }));
+      const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "student-logins.csv";
+      a.click();
+    }
+
+    window.addBulk = addBulk;
+    window.addOne = addOne;
+    window.downloadCsv = downloadCsv;
+    window.fillMissing = fillMissing;
+    document.getElementById("search").addEventListener("input", render);
+
+    if (role === "staff") reload().catch(function (e) {
+      console.error(e);
+      show("bad", "Could not load students. Check Firebase setup.");
+    });
+  </script>
+</body>
+</html>
