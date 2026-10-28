@@ -213,3 +213,23 @@ export async function deletePost(id) {
   delete all[id];
   write("demo_posts", all);
 }
+
+// ---------- For the student "My Attendance" page ----------
+export async function getAllSessions() {
+  if (USE_FIREBASE) {
+    const { fs, db } = await fbInit();
+    const snap = await fs.getDocs(fs.collection(db, "sessions"));
+    return snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
+  }
+  return Object.entries(read("demo_sessions")).map(([id, v]) => Object.assign({ id: id }, v));
+}
+
+export async function getStudentAttendance(studentId) {
+  if (USE_FIREBASE) {
+    const { fs, db } = await fbInit();
+    const snap = await fs.getDocs(
+      fs.query(fs.collection(db, "attendance"), fs.where("studentId", "==", studentId)));
+    return snap.docs.map(d => d.data());
+  }
+  return Object.values(read("demo_attendance")).filter(x => x.studentId === studentId);
+}
