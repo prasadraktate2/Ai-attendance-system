@@ -1,4 +1,11 @@
- // Weekly timetable (from the college timetable). Edit here to change it.
+// Weekly timetable (from the college timetable). Edit here to change it.
+// Class details shown on the home screen. Edit here if they change.
+export const CLASS_INFO = {
+  branch: "CSE",
+  sem: "1",
+  division: "B.Tech.(ID) - 1 - CSE"
+};
+
 export const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const R = { type: "Recess" };
