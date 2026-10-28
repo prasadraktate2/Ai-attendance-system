@@ -108,29 +108,11 @@
     <h2>QR Attendance Generator</h2>
     <p>Staff can generate a QR code for a classroom lecture.</p>
 
-    <label for="subject">Select Subject</label>
-    <select id="subject">
-      <option>Chemistry</option>
-      <option>Engineering Mathematics-I</option>
-      <option>Environmental Science</option>
-      <option>Computational Thinking &amp; Problem Solving</option>
-      <option>Physics</option>
-      <option>Communication</option>
-      <option>Verbal Communication Skills</option>
-      <option>Computer Workshop Practice</option>
-      <option>Introduction to AI Tools</option>
-      <option>Yoga and Meditation</option>
-      <option>Mandatory Course-I</option>
-    </select>
+    <label for="day">Day</label>
+    <select id="day"></select>
 
-    <label for="lecture">Lecture Number</label>
-    <select id="lecture">
-      <option value="1">Lecture 1</option>
-      <option value="2">Lecture 2</option>
-      <option value="3">Lecture 3</option>
-      <option value="4">Lecture 4</option>
-      <option value="5">Lecture 5</option>
-    </select>
+    <label for="slot">Select Lecture</label>
+    <select id="slot"></select>
 
     <button id="generateBtn" onclick="generateQR()">
       Generate QR Code
@@ -161,6 +143,7 @@
 
   <script type="module">
     import { USE_FIREBASE, saveSession, watchPresent } from "./store.js";
+    import { DAY_NAMES, TIMETABLE, todayKey, fmt, currentIndex } from "./timetable.js";
 
     let refreshTimer = null;
     let countdownTimer = null;
@@ -191,6 +174,38 @@
         return false;
       }
       return true;
+    }
+
+    // Lectures of a day (recess removed).
+    function lecturesFor(day) {
+      return TIMETABLE[day].filter(function (x) { return x.type !== "Recess"; });
+    }
+
+    function fillSlots(day, selectNow) {
+      const list = lecturesFor(day);
+      const slotSel = document.getElementById("slot");
+      slotSel.innerHTML = "";
+      list.forEach(function (x, i) {
+        const o = document.createElement("option");
+        o.value = i;
+        o.textContent = (i + 1) + ". " + fmt(x.start) + " - " + fmt(x.end) +
+          " | " + x.type + ": " + x.subject;
+        slotSel.appendChild(o);
+      });
+      slotSel.value = selectNow ? currentIndex(list) : 0;
+    }
+
+    function setupTimetable() {
+      const daySel = document.getElementById("day");
+      DAY_NAMES.forEach(function (d) {
+        const o = document.createElement("option");
+        o.value = d;
+        o.textContent = d;
+        daySel.appendChild(o);
+      });
+      daySel.value = todayKey();
+      fillSlots(daySel.value, true);
+      daySel.addEventListener("change", function () { fillSlots(daySel.value, false); });
     }
 
     function randomToken() {
@@ -224,8 +239,19 @@
       generateBtn.disabled = true;
       stopBtn.hidden = false;
 
-      const subject = document.getElementById("subject").value;
-      const lecture = document.getElementById("lecture").value;
+      const day = document.getElementById("day").value;
+      const slots = lecturesFor(day);
+      const slotIndex = Number(document.getElementById("slot").value);
+      const slot = slots[slotIndex];
+      if (!slot) {
+        statusBox.textContent = "No lecture selected.";
+        running = false;
+        generateBtn.disabled = false;
+        stopBtn.hidden = true;
+        return;
+      }
+      const subject = slot.subject;
+      const lecture = String(slotIndex + 1);
       const date = todayString();
       sessionId = date + "_L" + lecture + "_" + slug(subject);
 
@@ -233,6 +259,8 @@
         await saveSession(sessionId, {
           subject: subject,
           lecture: Number(lecture),
+          type: slot.type,
+          time: slot.start + "-" + slot.end,
           date: date,
           staffName: sessionStorage.getItem("attendanceUser"),
           staffId: sessionStorage.getItem("attendanceUserId"),
@@ -348,6 +376,7 @@
     window.generateQR = generateQR;
     window.stopQR = stopQR;
 
+    setupTimetable();
     checkStaff();
   </script>
 </body>
