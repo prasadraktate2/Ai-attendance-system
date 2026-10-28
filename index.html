@@ -7,59 +7,14 @@
 
   <style>
     * { box-sizing: border-box; }
-
-    body {
-      margin: 0;
-      padding: 16px;
-      font-family: Arial, sans-serif;
-      background: #f1f5f9;
-      color: #172033;
-    }
-
-    .card {
-      max-width: 420px;
-      margin: 40px auto;
-      padding: 24px;
-      background: white;
-      border-radius: 16px;
-      box-shadow: 0 4px 15px #00000010;
-    }
-
+    body { margin: 0; padding: 16px; font-family: Arial, sans-serif; background: #f1f5f9; color: #172033; }
+    .card { max-width: 420px; margin: 40px auto; padding: 24px; background: white; border-radius: 16px; box-shadow: 0 4px 15px #00000010; }
     h1 { color: #172554; margin-top: 0; text-align: center; }
-
-    label {
-      display: block;
-      margin: 14px 0 6px;
-      font-weight: bold;
-    }
-
-    input, select, button {
-      width: 100%;
-      padding: 12px;
-      border-radius: 8px;
-      font-size: 16px;
-    }
-
-    input, select {
-      border: 1px solid #cbd5e1;
-      background: white;
-    }
-
-    button {
-      margin-top: 18px;
-      border: none;
-      background: #2563eb;
-      color: white;
-      font-weight: bold;
-      cursor: pointer;
-    }
-
-    #loginMessage {
-      color: #b91c1c;
-      font-weight: bold;
-      min-height: 20px;
-      margin-top: 12px;
-    }
+    label { display: block; margin: 14px 0 6px; font-weight: bold; }
+    input, select, button { width: 100%; padding: 12px; border-radius: 8px; font-size: 16px; }
+    input, select { border: 1px solid #cbd5e1; background: white; }
+    button { margin-top: 18px; border: none; background: #2563eb; color: white; font-weight: bold; cursor: pointer; }
+    #loginMessage { color: #b91c1c; font-weight: bold; min-height: 20px; margin-top: 12px; }
   </style>
 </head>
 
@@ -74,56 +29,72 @@
       <option value="student">Student</option>
     </select>
 
-    <label for="userId">ID</label>
-    <input id="userId" type="text" placeholder="Enter your ID">
+    <label for="userId">ID (staff: email)</label>
+    <input id="userId" type="text" placeholder="Student ID or staff email">
 
     <label for="userName">Full Name (staff)</label>
     <input id="userName" type="text" placeholder="Enter your full name">
 
-    <label for="password">Password (students)</label>
-    <input id="password" type="password" placeholder="Password given by your teacher">
+    <label for="password">Password</label>
+    <input id="password" type="password" placeholder="Enter your password">
 
     <button onclick="login()">Login</button>
     <p id="loginMessage"></p>
   </div>
 
   <script type="module">
-    import { getStudent, getStudents } from "./store.js";
+    import { getStudent, getStudents, firebaseConfig } from "./store.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword }
+      from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
     window.login = async function () {
-      const id = document.getElementById('userId').value.trim().toUpperCase();
+      const rawId = document.getElementById('userId').value.trim();
+      const id = rawId.toUpperCase();
       let name = document.getElementById('userName').value.trim();
+      const pass = document.getElementById('password').value;
       let roll = '';
       let batch = '';
       const role = document.getElementById('role').value.trim().toLowerCase();
-
       const message = document.getElementById('loginMessage');
+      message.textContent = '';
 
       if (role !== 'staff' && role !== 'student') {
         message.textContent = 'Please select Staff or Student.';
         return;
       }
-
-      if (!id) {
-        message.textContent = 'Please enter your ID.';
+      if (!rawId) {
+        message.textContent = 'Please enter your ID (staff: email).';
         return;
+      }
+      if (!pass) {
+        message.textContent = 'Please enter your password.';
+        return;
+      }
+
+      if (role === 'staff') {
+        try {
+          const auth = getAuth(initializeApp(firebaseConfig));
+          await signInWithEmailAndPassword(auth, rawId.toLowerCase(), pass);
+        } catch (e) {
+          console.error(e);
+          message.textContent = 'Wrong staff email or password.';
+          return;
+        }
+        if (!name) name = 'Staff';
       }
 
       if (role === 'student') {
         try {
-          const roster = await getStudents();
-          if (roster.length > 0) {
-            const found = await getStudent(id);
-            const typed = document.getElementById('password').value.trim().toUpperCase();
-            if (!found || !found.password ||
-                found.password.toUpperCase() !== typed) {
-              message.textContent = 'Wrong ID or password.';
-              return;
-            }
-            name = found.name;
-            roll = found.roll || '';
-            batch = found.batch || '';
+          const found = await getStudent(id);
+          if (!found || !found.password ||
+              found.password.toUpperCase() !== pass.trim().toUpperCase()) {
+            message.textContent = 'Wrong ID or password.';
+            return;
           }
+          name = found.name;
+          roll = found.roll || '';
+          batch = found.batch || '';
         } catch (e) {
           console.error(e);
           message.textContent = 'Could not check your ID. Check your internet.';
@@ -131,14 +102,9 @@
         }
       }
 
-      if (!name) {
-        message.textContent = 'Please enter your full name.';
-        return;
-      }
-
       sessionStorage.setItem('attendanceUser', name);
       sessionStorage.setItem('attendanceRole', role);
-      sessionStorage.setItem('attendanceUserId', id);
+      sessionStorage.setItem('attendanceUserId', role === 'staff' ? rawId.toLowerCase() : id);
       sessionStorage.setItem('attendanceRoll', roll);
       sessionStorage.setItem('attendanceBatch', batch);
 
