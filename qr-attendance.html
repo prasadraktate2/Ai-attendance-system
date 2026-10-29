@@ -196,6 +196,10 @@
         msg.textContent = "This lecture time is over. Use Manual Attendance below.";
         return;
       }
+      if (ENFORCE_TIME && Date.now() < w.startAt) {
+        msg.textContent = "Ha lecture ajun survat zala nahi. QR " + tt.fmt(e.start) + " la suru hoil.";
+        return;
+      }
       try {
         sessionId = sessionIdFor(n);
         endAt = w.endAt;
