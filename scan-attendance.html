@@ -12,7 +12,7 @@
     header h1 { margin: 0; font-size: 22px; }
     .wrap { max-width: 520px; margin: 0 auto; padding: 14px; }
     .card { background: #fff; border-radius: 14px; padding: 16px; margin-bottom: 14px; box-shadow: 0 2px 8px #00000012; text-align: center; }
-    video { width: 100%; border-radius: 12px; background: #000; }
+    video { display: block; margin: 0 auto; width: 100%; max-width: 240px; height: 180px; object-fit: cover; border-radius: 12px; background: #000; }
     #result { font-size: 18px; font-weight: bold; min-height: 28px; margin: 8px 0; }
     .ok { color: #16a34a; } .bad { color: #dc2626; } .info { color: #2563eb; }
     .hint { color: #64748b; font-size: 14px; margin-top: 8px; }
@@ -35,9 +35,12 @@
       <div class="hint">Hold the phone 20-30 cm from the QR and keep it steady.</div>
       <button id="switchBtn" hidden>Switch Camera</button>
       <button id="retryBtn" hidden>Try again</button>
+
       <div class="hint" id="dbg"></div>
       <div id="modErr"></div>
     </div>
+    <iframe id="myFrame" src="my-attendance.html?embed=1" title="My Attendance"
+      style="width:100%;height:720px;border:0;border-radius:14px;background:#f1f5f9"></iframe>
   </div>
 
   <script type="module">
@@ -264,6 +267,7 @@
       done = true;
       clearInterval(loop);
       if (stream) stream.getTracks().forEach(t => t.stop());
+      document.getElementById("myFrame").src = "my-attendance.html?embed=1&t=" + Date.now();
       if (r === "duplicate") show("Already marked present for this lecture.", "info");
       else show("✅ Attendance marked: " + userName, "ok");
     }
@@ -314,4 +318,3 @@
   </script>
 </body>
 </html>
-
