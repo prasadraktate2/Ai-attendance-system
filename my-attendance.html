@@ -98,6 +98,10 @@
     import { TIMETABLE, DAY_NAMES, CLASS_INFO } from "./timetable.js";
 
     const content = document.getElementById("content");
+    if (location.search.indexOf("embed") !== -1) {
+      document.querySelector("header").style.display = "none";
+      document.querySelector(".tabs").style.display = "none";
+    }
     const role = (sessionStorage.getItem("attendanceRole") || "").toLowerCase();
     const studentId = sessionStorage.getItem("attendanceUserId");
 
@@ -294,7 +298,7 @@
         head.appendChild(th0);
         for (let n = 1; n <= MAXN; n++) {
           const th = document.createElement("th");
-          th.innerHTML = "Lec<br>" + n;
+          th.innerHTML = "Slot<br>" + n;
           head.appendChild(th);
         }
         table.appendChild(head);
