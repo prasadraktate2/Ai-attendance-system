@@ -3,68 +3,104 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Scan Attendance</title>
+  <title>Attendance</title>
   <style>
     * { box-sizing: border-box; }
-    body { margin: 0; font-family: Arial, sans-serif; background: #f1f5f9; color: #172033; }
-    header { background: #000; color: #fff; padding: 16px; display: flex; align-items: center; gap: 14px; }
-    header a { color: #fff; text-decoration: none; font-size: 24px; }
-    header h1 { margin: 0; font-size: 22px; }
-    .wrap { max-width: 520px; margin: 0 auto; padding: 14px; }
-    .card { background: #fff; border-radius: 14px; padding: 16px; margin-bottom: 14px; box-shadow: 0 2px 8px #00000012; text-align: center; }
-    video { display: block; margin: 0 auto; width: 100%; max-width: 240px; height: 180px; object-fit: cover; border-radius: 12px; background: #000; }
-    #result { font-size: 18px; font-weight: bold; min-height: 28px; margin: 8px 0; }
-    .ok { color: #16a34a; } .bad { color: #dc2626; } .info { color: #2563eb; }
-    .hint { color: #64748b; font-size: 14px; margin-top: 8px; }
-    #dbg { font-family: monospace; font-size: 12px; color: #475569; word-break: break-all; }
-    #modErr { color: #dc2626; font-size: 13px; margin-top: 8px; word-break: break-word; }
-    button { margin-top: 10px; padding: 12px 18px; border: 0; border-radius: 10px; background: #2563eb; color: #fff; font-size: 16px; font-weight: bold; cursor: pointer; }
+    html, body { margin: 0; background: #f1f5f9; font-family: Arial, sans-serif; color: #172033; }
+    header { background: #000; color: #fff; height: 60px; padding: 0 16px; display: flex; align-items: center; gap: 14px; }
+    header a { color: #fff; text-decoration: none; font-size: 26px; }
+    header h1 { margin: 0; font-size: 22px; flex: 1; }
+    #qrBtn { background: none; border: 0; padding: 4px; cursor: pointer; display: flex; }
+    #pageMsg { padding: 30px 16px; text-align: center; color: #dc2626; font-weight: bold; }
+    #myFrame { display: block; width: 100%; height: calc(100vh - 60px); height: calc(100dvh - 60px); border: 0; background: #f1f5f9; }
+
+    #scanner { position: fixed; inset: 0; z-index: 100; background: #000; overflow: hidden; }
+    #scanner[hidden] { display: none; }
+    #video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #000; }
+    #frame { position: absolute; left: 50%; top: 46%; width: min(72vw, 320px); height: min(72vw, 320px);
+             transform: translate(-50%, -50%); background: rgba(255,255,255,.18); }
+    #line { position: absolute; left: 0; right: 0; top: 50%; height: 2px; background: #f06060; }
+    #result { position: absolute; top: 28px; left: 16px; right: 16px; text-align: center; font-size: 17px; font-weight: bold;
+              padding: 10px 12px; border-radius: 10px; background: rgba(0,0,0,.55); color: #fff; }
+    #result.ok { color: #4ade80; } #result.bad { color: #f87171; } #result.info { color: #fff; }
+    #dbg { position: absolute; left: 10px; right: 10px; bottom: 96px; text-align: center; font-family: monospace;
+           font-size: 11px; color: #cbd5e1; word-break: break-all; }
+    #modErr { position: absolute; left: 10px; right: 10px; bottom: 120px; text-align: center; font-size: 12px; color: #f87171; }
+    #retryBtn { position: absolute; left: 50%; transform: translateX(-50%); bottom: 150px; padding: 12px 22px; border: 0;
+                border-radius: 10px; background: #2563eb; color: #fff; font-size: 16px; font-weight: bold; }
+    #retryBtn[hidden] { display: none; }
+    #bar { position: absolute; left: 0; right: 0; bottom: 0; height: 80px; background: #000; display: flex;
+           align-items: center; justify-content: space-between; padding: 0 22px; }
+    #bar button { background: none; border: 0; color: #fff; font-size: 17px; font-weight: bold; cursor: pointer; padding: 8px; display: flex; align-items: center; }
   </style>
 </head>
 <body>
   <header>
     <a href="dashboard.html">&larr;</a>
-    <h1>Scan Attendance</h1>
+    <h1>Attendance</h1>
+    <button id="qrBtn" aria-label="Scan QR">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round">
+        <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+        <path d="M14 14h3v3h-3zM20 14v1M17 20h4M20 17v1"/>
+      </svg>
+    </button>
   </header>
 
-  <div class="wrap">
-    <div class="card">
-      <div id="result" class="info">Loading page...</div>
-      <video id="video" playsinline muted autoplay></video>
-      <canvas id="canvas" hidden></canvas>
-      <div class="hint">Hold the phone 20-30 cm from the QR and keep it steady.</div>
-      <button id="switchBtn" hidden>Switch Camera</button>
-      <button id="retryBtn" hidden>Try again</button>
+  <div id="pageMsg" hidden></div>
+  <iframe id="myFrame" src="my-attendance.html?embed=1" title="My Attendance"></iframe>
 
-      <div class="hint" id="dbg"></div>
-      <div id="modErr"></div>
+  <div id="scanner" hidden>
+    <video id="video" playsinline muted autoplay></video>
+    <canvas id="canvas" hidden></canvas>
+    <div id="frame"><div id="line"></div></div>
+    <div id="result" class="info">Starting camera...</div>
+    <button id="retryBtn" hidden>Try again</button>
+    <div id="modErr"></div>
+    <div id="dbg"></div>
+    <div id="bar">
+      <button id="switchBtn" aria-label="Switch camera">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5"/>
+        </svg>
+      </button>
+      <button id="flashBtn" aria-label="Flash">
+        <svg id="flashSvg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round">
+          <path d="M13 2L4 14h7l-1 8 9-12h-7z"/>
+        </svg>
+      </button>
+      <button id="cancelBtn">Cancel</button>
     </div>
-    <iframe id="myFrame" src="my-attendance.html?embed=1" title="My Attendance"
-      style="width:100%;height:720px;border:0;border-radius:14px;background:#f1f5f9"></iframe>
   </div>
 
   <script type="module">
-    // store.js / slots.js are loaded safely below, so a missing file can never freeze the camera
+    // store.js / slots.js load safely, so a missing file never freezes the camera
     let getAllSessions = null, markPresent = null, ENFORCE_TIME = true;
 
     const role = (sessionStorage.getItem("attendanceRole") || "").toLowerCase();
     const userId = sessionStorage.getItem("attendanceUserId");
     const userName = sessionStorage.getItem("attendanceUser");
+    const scanner = document.getElementById("scanner");
     const result = document.getElementById("result");
     const dbg = document.getElementById("dbg");
     const modErr = document.getElementById("modErr");
     const video = document.getElementById("video");
     const canvas = document.getElementById("canvas");
+    const retryBtn = document.getElementById("retryBtn");
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
     let busy = false, done = false, stream = null, scans = 0, engine = "none", detector = null, loop = null;
+    let cams = [], camIdx = 0, torchOn = false, starting = false;
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
 
     function show(text, cls) { result.textContent = text; result.className = cls; }
+    function camLabel() {
+      const t = stream && stream.getVideoTracks()[0];
+      return t ? (t.label || "camera") : "none";
+    }
     function debug(extra) {
       dbg.textContent = "engine: " + engine + " | " + camLabel() + " | " + (video.videoWidth || 0) + "x" +
         (video.videoHeight || 0) + " | frames: " + scans + (extra ? " | " + extra : "");
     }
 
-    // any hidden JS error will now be shown on screen
     window.addEventListener("error", e => { modErr.textContent = "JS error: " + (e.message || e); });
     window.addEventListener("unhandledrejection", e => {
       modErr.textContent = "JS error: " + ((e.reason && (e.reason.message || e.reason)) || "unknown");
@@ -77,15 +113,11 @@
         getAllSessions = s.getAllSessions;
         markPresent = s.markPresent;
         if (!getAllSessions || !markPresent) errs.push("store.js madhe getAllSessions / markPresent nahi.");
-      } catch (e) {
-        errs.push("store.js load zali nahi: " + (e.message || e));
-      }
+      } catch (e) { errs.push("store.js load zali nahi: " + (e.message || e)); }
       try {
         const sl = await import("./slots.js");
         if (typeof sl.ENFORCE_TIME !== "undefined") ENFORCE_TIME = sl.ENFORCE_TIME;
-      } catch (e) {
-        errs.push("slots.js load zali nahi (GitHub var upload kara): " + (e.message || e));
-      }
+      } catch (e) { errs.push("slots.js load zali nahi: " + (e.message || e)); }
       if (errs.length) modErr.textContent = errs.join("  |  ");
     }
 
@@ -108,13 +140,9 @@
       return false;
     }
 
-    document.getElementById("retryBtn").onclick = () => location.reload();
-
-    let cams = [], camIdx = 0;
-    const sleep = ms => new Promise(r => setTimeout(r, ms));
-
     async function openCamera(deviceId) {
       if (stream) stream.getTracks().forEach(t => t.stop());
+      torchOn = false; paintFlash();
       const v = { width: { ideal: 1280 }, height: { ideal: 720 } };
       if (deviceId) v.deviceId = { exact: deviceId };
       else v.facingMode = { ideal: "environment" };
@@ -151,11 +179,6 @@
       } catch (e) { cams = []; }
     }
 
-    function camLabel() {
-      const t = stream && stream.getVideoTracks()[0];
-      return t ? (t.label || "camera") : "none";
-    }
-
     async function switchNext() {
       if (cams.length < 2) return false;
       camIdx = (camIdx + 1) % cams.length;
@@ -163,16 +186,70 @@
       return true;
     }
 
-    document.getElementById("switchBtn").onclick = async () => {
-      show("Switching camera...", "info");
-      await switchNext();
-      await sleep(900);
-      show(isBlack() ? "This camera is black. Tap Switch Camera again." : "Point the camera at the QR code", "info");
+    // ---- flash (torch) ----
+    function paintFlash() {
+      const svg = document.getElementById("flashSvg");
+      svg.setAttribute("fill", torchOn ? "#facc15" : "none");
+      svg.setAttribute("stroke", torchOn ? "#facc15" : "#fff");
+    }
+    document.getElementById("flashBtn").onclick = async () => {
+      const t = stream && stream.getVideoTracks()[0];
+      const caps = t && t.getCapabilities ? t.getCapabilities() : {};
+      if (!caps.torch) { show("Ya camera madhe flash nahi.", "bad"); setTimeout(() => show("Point the camera at the QR code", "info"), 1800); return; }
+      try {
+        torchOn = !torchOn;
+        await t.applyConstraints({ advanced: [{ torch: torchOn }] });
+      } catch (e) { torchOn = false; show("Flash chalu zala nahi.", "bad"); }
+      paintFlash();
     };
 
+    document.getElementById("switchBtn").onclick = async () => {
+      show("Switching camera...", "info");
+      const ok = await switchNext();
+      await sleep(900);
+      if (!ok) show("Dusra camera nahi.", "bad");
+      else show(isBlack() ? "This camera is black. Tap switch again." : "Point the camera at the QR code", "info");
+    };
+
+    // ---- open / close full screen scanner ----
+    function refreshFrame() {
+      document.getElementById("myFrame").src = "my-attendance.html?embed=1&t=" + Date.now();
+    }
+    function closeScanner() {
+      clearInterval(loop); loop = null;
+      if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+      video.srcObject = null;
+      torchOn = false; paintFlash();
+      scanner.hidden = true;
+      document.body.style.overflow = "";
+      refreshFrame();
+    }
+    document.getElementById("cancelBtn").onclick = closeScanner;
+
+    function openScanner() {
+      if (role !== "student" || !userId) {
+        const pm = document.getElementById("pageMsg");
+        pm.hidden = false; pm.textContent = "Please log in as a student.";
+        return;
+      }
+      scanner.hidden = false;
+      document.body.style.overflow = "hidden";
+      done = false; busy = false; scans = 0;
+      retryBtn.hidden = true;
+      startCamera();
+    }
+    document.getElementById("qrBtn").onclick = openScanner;
+    retryBtn.onclick = () => { retryBtn.hidden = true; startCamera(); };
+
     async function startCamera() {
+      if (starting) return;
+      starting = true;
+      try { await startCameraInner(); } finally { starting = false; }
+    }
+
+    async function startCameraInner() {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        show("Camera needs HTTPS and Chrome. Open the https link of the app in Chrome.", "bad");
+        show("Camera needs HTTPS and Chrome. Open the https link in Chrome.", "bad");
         return;
       }
       try {
@@ -188,40 +265,39 @@
       } catch (e) {
         console.error(e);
         const n = e && (e.name || e.message);
-        let m = "Camera not available (" + n + "). Allow camera permission and reload.";
-        if (n === "timeout" || e.message === "timeout") m = "Camera is not responding. Tap Allow in the address bar, close Teams/Zoom/other tabs using the camera, then Try again.";
+        let m = "Camera not available (" + n + "). Allow camera permission and try again.";
+        if (e.message === "timeout") m = "Camera is not responding. Tap Allow in the address bar, close other apps/tabs using the camera, then Try again.";
         else if (n === "NotAllowedError") m = "Camera permission is blocked. Tap the lock icon in the address bar, set Camera to Allow, then Try again.";
         else if (n === "NotFoundError") m = "No camera found on this device.";
         else if (n === "NotReadableError") m = "Camera is being used by another app or tab. Close it, then Try again.";
         show(m, "bad");
-        document.getElementById("retryBtn").hidden = false;
+        retryBtn.hidden = false;
         return;
       }
 
-      // some phones open a camera that shows only black: try the others automatically
       await sleep(1200);
       for (let tries = 0; tries < cams.length && isBlack(); tries++) {
         show("Camera is black, trying another camera...", "info");
         if (!(await switchNext())) break;
         await sleep(1200);
       }
-      if (cams.length > 1) document.getElementById("switchBtn").hidden = false;
       if (isBlack()) {
-        show("Camera shows black. Close other apps using the camera, then tap Switch Camera.", "bad");
-        document.getElementById("retryBtn").hidden = false;
+        show("Camera shows black. Close other apps using the camera, then tap switch.", "bad");
+        retryBtn.hidden = false;
       }
 
-      if ("BarcodeDetector" in window) {
+      if (!detector && "BarcodeDetector" in window) {
         try { detector = new BarcodeDetector({ formats: ["qr_code"] }); engine = "native"; } catch (e) { detector = null; }
       }
       const hasJsQR = await ensureJsQR();
       if (!detector && !hasJsQR) {
-        show("Scanner library could not load. Check internet and reload.", "bad");
-        document.getElementById("retryBtn").hidden = false;
+        show("Scanner library could not load. Check internet and try again.", "bad");
+        retryBtn.hidden = false;
         return;
       }
       if (!detector) engine = "jsQR";
       if (!isBlack()) show("Point the camera at the QR code", "info");
+      clearInterval(loop);
       loop = setInterval(scanFrame, 180);
     }
 
@@ -244,17 +320,12 @@
           const code = window.jsQR(img.data, img.width, img.height, { inversionAttempts: "attemptBoth" });
           if (code) text = code.data || "";
         }
-      } catch (e) {
-        console.error(e);
-      }
+      } catch (e) { console.error(e); }
       debug(text ? "seen: " + text.slice(0, 20) : "");
       if (!text) return;
       text = text.trim();
-      if (/^\d{6}$/.test(text)) {
-        handle(text);
-      } else {
-        show("This QR is not an attendance QR.", "bad");
-      }
+      if (/^\d{6}$/.test(text)) handle(text);
+      else show("This QR is not an attendance QR.", "bad");
     }
 
     function tokenOk(s, token) {
@@ -266,10 +337,9 @@
       const r = await markPresent(sessionId, { id: userId, name: userName });
       done = true;
       clearInterval(loop);
-      if (stream) stream.getTracks().forEach(t => t.stop());
-      document.getElementById("myFrame").src = "my-attendance.html?embed=1&t=" + Date.now();
       if (r === "duplicate") show("Already marked present for this lecture.", "info");
       else show("✅ Attendance marked: " + userName, "ok");
+      setTimeout(closeScanner, 1500);
     }
 
     async function handle(token) {
@@ -277,7 +347,7 @@
       show("Checking...", "info");
       try {
         if (!getAllSessions || !markPresent) {
-          show("Server files missing. See the red error text below.", "bad");
+          show("Server files missing. See the red error text.", "bad");
           setTimeout(() => { busy = false; }, 3000);
           return;
         }
@@ -308,14 +378,7 @@
       }
     }
 
-    // ---- start ----
-    if (role !== "student" || !userId) {
-      show("Please log in as a student.", "bad");
-    } else {
-      startCamera();      // camera first, never blocked by other files
-      loadModules();      // store.js / slots.js load in background
-    }
+    loadModules();
   </script>
 </body>
 </html>
-
