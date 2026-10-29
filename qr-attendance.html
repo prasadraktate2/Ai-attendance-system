@@ -29,6 +29,12 @@
     .tg { min-width: 96px; margin: 0; padding: 9px 10px; font-size: 14px; background: #dc2626; }
     .tg.on { background: #16a34a; }
     #sum { font-weight: bold; margin: 8px 0; }
+    #fs { position: fixed; inset: 0; z-index: 200; background: #fff; display: flex; flex-direction: column;
+          align-items: center; justify-content: center; gap: 14px; cursor: pointer; }
+    #fs[hidden] { display: none; }
+    #fsQr img, #fsQr canvas { display: block; }
+    #fsInfo { font-size: 26px; font-weight: bold; color: #172033; text-align: center; }
+    #fsHint { font-size: 14px; color: #64748b; }
   </style>
 </head>
 <body>
@@ -50,6 +56,8 @@
       <div id="box" hidden>
         <div id="qrWrap"><div id="qr"></div></div>
         <div class="hint">Students open Attendance and scan this QR. It changes every 30 seconds. Scanning closes automatically when the lecture time ends.</div>
+        <div class="count">QR badalnyas: <b class="secs">30</b> sec</div>
+        <button class="sec" id="fsBtn">Full Screen QR (projector)</button>
         <div class="count">Present: <b id="count">0</b></div>
       </div>
     </div>
@@ -62,6 +70,12 @@
       <div id="sum"></div>
       <div id="list"></div>
     </div>
+  </div>
+
+  <div id="fs" hidden>
+    <div id="fsQr"></div>
+    <div id="fsInfo">QR badalnyas: <span class="secs">30</span> sec</div>
+    <div id="fsHint">Band karnyasathi screen var tap kara</div>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -158,7 +172,32 @@
       }
       const el = document.getElementById("qr");
       el.innerHTML = "";
-      new QRCode(el, { text: cur, width: 300, height: 300, correctLevel: QRCode.CorrectLevel.L });
+      const size = Math.max(260, Math.min(window.innerWidth - 100, 440));
+      new QRCode(el, { text: cur, width: size, height: size, correctLevel: QRCode.CorrectLevel.L });
+      drawFull();
+    }
+
+    // big QR for the class projector / TV
+    function drawFull() {
+      const fs = document.getElementById("fs");
+      if (fs.hidden || !cur) return;
+      const el = document.getElementById("fsQr");
+      el.innerHTML = "";
+      const size = Math.floor(Math.min(window.innerWidth, window.innerHeight - 110) * 0.94);
+      new QRCode(el, { text: cur, width: size, height: size, correctLevel: QRCode.CorrectLevel.L });
+    }
+    document.getElementById("fsBtn").onclick = () => {
+      document.getElementById("fs").hidden = false;
+      drawFull();
+    };
+    document.getElementById("fs").onclick = () => { document.getElementById("fs").hidden = true; };
+    window.addEventListener("resize", drawFull);
+
+    // seconds left until the QR changes
+    let nextAt = 0, secTimer = null;
+    function tickSecs() {
+      const left = Math.max(0, Math.ceil((nextAt - Date.now()) / 1000));
+      document.querySelectorAll(".secs").forEach(e => e.textContent = left);
     }
 
     async function rotate() {
@@ -169,11 +208,14 @@
       prev = cur;
       cur = newToken();
       await saveSession(sessionId, { token: cur, prevToken: prev, tokenAt: Date.now() });
+      nextAt = Date.now() + 30000;
       draw();
     }
 
     async function stopQr(text) {
       clearInterval(timer);
+      clearInterval(secTimer);
+      document.getElementById("fs").hidden = true;
       if (unsub) unsub();
       try { await saveSession(sessionId, { active: false, token: "", prevToken: "" }); } catch (e) {}
       document.getElementById("box").hidden = true;
@@ -209,6 +251,9 @@
           startAt: w.startAt, endAt: w.endAt, createdAt: Date.now() });
         await rotate();
         timer = setInterval(() => rotate().catch(console.error), 30000);
+        clearInterval(secTimer);
+        secTimer = setInterval(tickSecs, 500);
+        tickSecs();
         unsub = watchPresent(sessionId, c => document.getElementById("count").textContent = c);
         document.getElementById("box").hidden = false;
         document.getElementById("startBtn").hidden = true;
