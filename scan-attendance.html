@@ -17,6 +17,7 @@
     .ok { color: #16a34a; } .bad { color: #dc2626; } .info { color: #2563eb; }
     .hint { color: #64748b; font-size: 14px; margin-top: 8px; }
     #dbg { font-family: monospace; font-size: 12px; color: #475569; word-break: break-all; }
+    #modErr { color: #dc2626; font-size: 13px; margin-top: 8px; word-break: break-word; }
     button { margin-top: 10px; padding: 12px 18px; border: 0; border-radius: 10px; background: #2563eb; color: #fff; font-size: 16px; font-weight: bold; cursor: pointer; }
   </style>
 </head>
@@ -28,25 +29,27 @@
 
   <div class="wrap">
     <div class="card">
-      <div id="result" class="info">Starting camera...</div>
+      <div id="result" class="info">Loading page...</div>
       <video id="video" playsinline muted autoplay></video>
       <canvas id="canvas" hidden></canvas>
       <div class="hint">Hold the phone 20-30 cm from the QR and keep it steady.</div>
       <button id="switchBtn" hidden>Switch Camera</button>
       <button id="retryBtn" hidden>Try again</button>
       <div class="hint" id="dbg"></div>
+      <div id="modErr"></div>
     </div>
   </div>
 
   <script type="module">
-    import { getAllSessions, markPresent } from "./store.js";
-    import { ENFORCE_TIME } from "./slots.js";
+    // store.js / slots.js are loaded safely below, so a missing file can never freeze the camera
+    let getAllSessions = null, markPresent = null, ENFORCE_TIME = true;
 
     const role = (sessionStorage.getItem("attendanceRole") || "").toLowerCase();
     const userId = sessionStorage.getItem("attendanceUserId");
     const userName = sessionStorage.getItem("attendanceUser");
     const result = document.getElementById("result");
     const dbg = document.getElementById("dbg");
+    const modErr = document.getElementById("modErr");
     const video = document.getElementById("video");
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
@@ -56,6 +59,31 @@
     function debug(extra) {
       dbg.textContent = "engine: " + engine + " | " + camLabel() + " | " + (video.videoWidth || 0) + "x" +
         (video.videoHeight || 0) + " | frames: " + scans + (extra ? " | " + extra : "");
+    }
+
+    // any hidden JS error will now be shown on screen
+    window.addEventListener("error", e => { modErr.textContent = "JS error: " + (e.message || e); });
+    window.addEventListener("unhandledrejection", e => {
+      modErr.textContent = "JS error: " + ((e.reason && (e.reason.message || e.reason)) || "unknown");
+    });
+
+    async function loadModules() {
+      const errs = [];
+      try {
+        const s = await import("./store.js");
+        getAllSessions = s.getAllSessions;
+        markPresent = s.markPresent;
+        if (!getAllSessions || !markPresent) errs.push("store.js madhe getAllSessions / markPresent nahi.");
+      } catch (e) {
+        errs.push("store.js load zali nahi: " + (e.message || e));
+      }
+      try {
+        const sl = await import("./slots.js");
+        if (typeof sl.ENFORCE_TIME !== "undefined") ENFORCE_TIME = sl.ENFORCE_TIME;
+      } catch (e) {
+        errs.push("slots.js load zali nahi (GitHub var upload kara): " + (e.message || e));
+      }
+      if (errs.length) modErr.textContent = errs.join("  |  ");
     }
 
     function loadScript(src) {
@@ -78,12 +106,6 @@
     }
 
     document.getElementById("retryBtn").onclick = () => location.reload();
-
-    if (role !== "student" || !userId) {
-      show("Please log in as a student.", "bad");
-    } else {
-      startCamera();
-    }
 
     let cams = [], camIdx = 0;
     const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -147,7 +169,7 @@
 
     async function startCamera() {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        show("Camera needs HTTPS. Open the https link of the app on the phone.", "bad");
+        show("Camera needs HTTPS and Chrome. Open the https link of the app in Chrome.", "bad");
         return;
       }
       try {
@@ -163,8 +185,8 @@
       } catch (e) {
         console.error(e);
         const n = e && (e.name || e.message);
-        let m = "Camera not available. Allow camera permission and reload.";
-        if (n === "timeout") m = "Camera is not responding. Tap Allow in the address bar, close Teams/Zoom/other tabs using the camera, then Try again.";
+        let m = "Camera not available (" + n + "). Allow camera permission and reload.";
+        if (n === "timeout" || e.message === "timeout") m = "Camera is not responding. Tap Allow in the address bar, close Teams/Zoom/other tabs using the camera, then Try again.";
         else if (n === "NotAllowedError") m = "Camera permission is blocked. Tap the lock icon in the address bar, set Camera to Allow, then Try again.";
         else if (n === "NotFoundError") m = "No camera found on this device.";
         else if (n === "NotReadableError") m = "Camera is being used by another app or tab. Close it, then Try again.";
@@ -250,6 +272,11 @@
       busy = true;
       show("Checking...", "info");
       try {
+        if (!getAllSessions || !markPresent) {
+          show("Server files missing. See the red error text below.", "bad");
+          setTimeout(() => { busy = false; }, 3000);
+          return;
+        }
         const all = await getAllSessions();
         const active = all.filter(x => tokenOk(x, token))
           .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))[0];
@@ -275,6 +302,14 @@
         show("Error: could not save (" + (e.code || e.message) + ")", "bad");
         setTimeout(() => { busy = false; }, 2500);
       }
+    }
+
+    // ---- start ----
+    if (role !== "student" || !userId) {
+      show("Please log in as a student.", "bad");
+    } else {
+      startCamera();      // camera first, never blocked by other files
+      loadModules();      // store.js / slots.js load in background
     }
   </script>
 </body>
