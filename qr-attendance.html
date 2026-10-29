@@ -66,9 +66,49 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script type="module">
-    import { saveSession, getSession, watchPresent, getStudents,
-             getSessionAttendance, markPresent, removePresent } from "./store.js";
-    import { SLOTS, ENFORCE_TIME, slotWindow, currentSlot } from "./slots.js";
+    const store = await import("./store.js");
+    const { saveSession, getSession, watchPresent, getStudents,
+            getSessionAttendance, markPresent, removePresent } = store;
+
+    // slots.js is optional: if it is missing on the server, built-in default times are used
+    let cfg = null;
+    try { cfg = await import("./slots.js"); } catch (e) { console.error(e); }
+    if (!cfg) {
+      const DEF = [
+        { n: 1, start: "10:00", end: "10:55" }, { n: 2, start: "11:00", end: "11:55" },
+        { n: 3, start: "12:00", end: "12:55" }, { n: 4, start: "14:00", end: "14:55" },
+        { n: 5, start: "15:00", end: "15:55" }
+      ];
+      const at = (hhmm, base) => {
+        const p = hhmm.split(":"); const d = new Date(base);
+        d.setHours(+p[0], +p[1], 0, 0); return d.getTime();
+      };
+      const slotWindowF = (n, base) => {
+        const x = DEF.find(y => y.n === n); const b = base || new Date();
+        return { startAt: at(x.start, b), endAt: at(x.end, b) + 59000 };
+      };
+      cfg = {
+        ENFORCE_TIME: true, SLOTS: DEF, slotWindow: slotWindowF,
+        currentSlot: () => {
+          const now = Date.now();
+          for (const x of DEF) { const w = slotWindowF(x.n); if (now >= w.startAt && now <= w.endAt) return x; }
+          for (const x of DEF) { if (now < slotWindowF(x.n).startAt) return x; }
+          return DEF[DEF.length - 1];
+        }
+      };
+      setTimeout(() => {
+        document.getElementById("msg").textContent =
+          "slots.js not found on server - using default times. Upload slots.js to GitHub.";
+      }, 0);
+    }
+    const { SLOTS, ENFORCE_TIME, slotWindow, currentSlot } = cfg;
+
+    if (typeof getSessionAttendance !== "function" || typeof removePresent !== "function") {
+      setTimeout(() => {
+        document.getElementById("msg").textContent =
+          "Old store.js is on the server. Upload the NEW store.js to GitHub (manual list needs it).";
+      }, 0);
+    }
 
     const role = (sessionStorage.getItem("attendanceRole") || "").toLowerCase();
     const userId = sessionStorage.getItem("attendanceUserId");
