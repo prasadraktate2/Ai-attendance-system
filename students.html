@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -62,7 +62,7 @@
       border-bottom: 1px solid #e2e8f0;
     }
 
-    .row .id { min-width: 70px; font-weight: bold; color: #172554; }
+    .row .id { min-width: 90px; font-weight: bold; color: #172554; overflow-wrap: anywhere; }
     .row .nm { flex: 1; overflow-wrap: anywhere; }
     .pw { font-family: monospace; font-size: 13px; color: #475569; margin-top: 2px; }
     .row .key { background: #dbeafe; color: #123b73; }
@@ -89,35 +89,35 @@
       document.body.prepend(b);
     });
   </script>
+
   <div class="card" id="mainCard">
     <h1>👩‍🎓 Students</h1>
-    <p class="note">Add all students here. ID (username) and password are created automatically (S001, S002 ...). Give each student their ID and password.</p>
+    <p class="note">PRN is the student's login ID. You (staff) type the password. Give each student their PRN and password.</p>
 
-    <h2>Add many students at once</h2>
-    <p class="note">
-      Paste one student per line.<br>
-      Only name: <b>Rohit Sharma</b> (ID is created automatically)<br>
-      With your own ID: <b>2126UIDM1001, Rohit Sharma</b><br>
-      With roll no. and batch: <b>2126UIDM1001, Rohit Sharma, 12, Batch - A</b>
-    </p>
-    <textarea id="bulk" rows="8" placeholder="Rohit Sharma&#10;Priya Patil&#10;Amit Jadhav"></textarea>
-    <button onclick="addBulk()">Add Students</button>
-
-    <h2 style="margin-top:24px">Add one student</h2>
-    <label for="oneId">ID (optional)</label>
-    <input id="oneId" type="text" placeholder="Leave empty to create automatically">
+    <h2>Add one student</h2>
+    <label for="onePrn">PRN</label>
+    <input id="onePrn" type="text" placeholder="e.g. 2024001234" autocomplete="off">
     <label for="oneName">Full Name</label>
-    <input id="oneName" type="text" placeholder="Student full name">
+    <input id="oneName" type="text" placeholder="Student full name" autocomplete="off">
+    <label for="onePw">Password</label>
+    <input id="onePw" type="text" placeholder="At least 4 characters" autocomplete="off">
     <button onclick="addOne()">Add Student</button>
+
+    <h2 style="margin-top:24px">Add many students at once</h2>
+    <p class="note">
+      One student per line: <b>PRN, Full Name, Password</b><br>
+      Example: <b>2024001234, Rohit Sharma, rohit123</b>
+    </p>
+    <textarea id="bulk" rows="8" placeholder="2024001234, Rohit Sharma, rohit123&#10;2024001235, Priya Patil, priya123"></textarea>
+    <button onclick="addBulk()">Add Students</button>
 
     <p id="msg"></p>
   </div>
 
   <div class="card" id="listCard">
     <h2>Student List (<span id="count">0</span>)</h2>
-    <input id="search" type="text" placeholder="Search name or ID">
+    <input id="search" type="text" placeholder="Search name or PRN">
     <button class="gray" onclick="downloadCsv()">Download Login List (CSV)</button>
-    <button onclick="fillMissing()">Create Missing Passwords</button>
     <div id="list"></div>
   </div>
 
@@ -128,6 +128,7 @@
 
     const role = (sessionStorage.getItem("attendanceRole") || "").toLowerCase();
     const msg = document.getElementById("msg");
+    const MIN_PW = 4;
     let students = [];
 
     if (role !== "staff") {
@@ -141,87 +142,72 @@
       msg.textContent = text;
     }
 
-    function nextIdNumber() {
-      let max = 0;
-      students.forEach(function (s) {
-        const m = /^S(\d+)$/.exec(s.id);
-        if (m) max = Math.max(max, Number(m[1]));
-      });
-      return max + 1;
-    }
-
-    function makeId(n) {
-      return "S" + String(n).padStart(3, "0");
-    }
-
-    // 6 characters, no confusing letters (0/O, 1/I)
-    function genPassword() {
-      const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-      const bytes = new Uint8Array(6);
-      crypto.getRandomValues(bytes);
-      return Array.from(bytes, function (b) { return chars[b % chars.length]; }).join("");
-    }
-
     function cleanName(t) {
       return t.replace(/\s+/g, " ").trim();
     }
 
-    // Reads pasted lines into [{id (may be ""), name}]
+    function cleanPrn(t) {
+      return t.replace(/\s+/g, "").toUpperCase();
+    }
+
+    // PRN is used as the document id, so allow only safe characters.
+    function validPrn(p) {
+      return /^[A-Z0-9-]+$/.test(p);
+    }
+
+    // Reads pasted lines: PRN, Full Name, Password
     function parseLines(text) {
-      const out = [];
+      const items = [];
+      let bad = 0;
       text.split(/\r?\n/).forEach(function (line) {
         line = line.trim();
         if (!line) return;
-        let id = "";
-        let name = line;
-        let roll = "";
-        let batch = "";
         const parts = line.split(/[,\t]/);
-        if (parts.length >= 2 && /^[A-Za-z]*\d[A-Za-z0-9-]*$/.test(parts[0].trim())) {
-          id = parts[0].trim().toUpperCase();
-          name = parts[1];
-          roll = (parts[2] || "").trim();
-          batch = (parts[3] || "").trim();
-        }
-        name = cleanName(name);
-        if (name) out.push({ id: id, name: name, roll: roll, batch: batch });
+        const prn = cleanPrn(parts[0] || "");
+        const name = cleanName(parts[1] || "");
+        const password = (parts[2] || "").trim();
+        if (!validPrn(prn) || !name || password.length < MIN_PW) { bad++; return; }
+        items.push({ prn: prn, name: name, password: password });
       });
-      return out;
+      return { items: items, bad: bad };
     }
 
-    async function addStudents(items) {
+    async function addStudents(items, badCount) {
       const have = new Set(students.map(function (s) { return s.id; }));
-      let n = nextIdNumber();
       const toSave = [];
       let skipped = 0;
 
       items.forEach(function (it) {
-        let id = it.id;
-        if (!id) {
-          while (have.has(makeId(n))) n++;
-          id = makeId(n);
-          n++;
-        }
-        if (have.has(id)) { skipped++; return; }
-        have.add(id);
-        toSave.push({ id: id, name: it.name, password: genPassword(),
-          roll: it.roll || "", batch: it.batch || "" });
+        if (have.has(it.prn)) { skipped++; return; }
+        have.add(it.prn);
+        toSave.push({
+          id: it.prn,
+          name: it.name,
+          password: it.password,
+          roll: it.prn,
+          batch: ""
+        });
       });
 
       if (toSave.length) await saveStudents(toSave);
       await reload();
 
       let text = "Added " + toSave.length + " student(s).";
-      if (skipped) text += " Skipped " + skipped + " (ID already exists).";
+      if (skipped) text += " Skipped " + skipped + " (PRN already exists).";
+      if (badCount) text += " " + badCount + " line(s) wrong (need PRN, Name, Password of " + MIN_PW + "+ characters).";
       show(toSave.length ? "ok" : "bad", text);
+      return toSave.length;
     }
 
     async function addBulk() {
-      const items = parseLines(document.getElementById("bulk").value);
-      if (!items.length) { show("bad", "Please paste student names."); return; }
+      const r = parseLines(document.getElementById("bulk").value);
+      if (!r.items.length) {
+        show("bad", "Format: PRN, Full Name, Password (password " + MIN_PW + "+ characters).");
+        return;
+      }
       try {
-        await addStudents(items);
-        document.getElementById("bulk").value = "";
+        const added = await addStudents(r.items, r.bad);
+        if (added && !r.bad) document.getElementById("bulk").value = "";
       } catch (e) {
         console.error(e);
         show("bad", "Could not save. Check Firebase setup.");
@@ -229,42 +215,39 @@
     }
 
     async function addOne() {
-      const id = document.getElementById("oneId").value.trim().toUpperCase();
+      const prn = cleanPrn(document.getElementById("onePrn").value);
       const name = cleanName(document.getElementById("oneName").value);
-      if (!name) { show("bad", "Please enter the student name."); return; }
+      const password = document.getElementById("onePw").value.trim();
+
+      if (!prn) { show("bad", "Please enter the PRN."); return; }
+      if (!validPrn(prn)) { show("bad", "PRN can have only letters, numbers and -"); return; }
+      if (!name) { show("bad", "Please enter the full name."); return; }
+      if (password.length < MIN_PW) { show("bad", "Password must be at least " + MIN_PW + " characters."); return; }
+
       try {
-        await addStudents([{ id: id, name: name }]);
-        document.getElementById("oneId").value = "";
-        document.getElementById("oneName").value = "";
+        const added = await addStudents([{ prn: prn, name: name, password: password }], 0);
+        if (added) {
+          document.getElementById("onePrn").value = "";
+          document.getElementById("oneName").value = "";
+          document.getElementById("onePw").value = "";
+        }
       } catch (e) {
         console.error(e);
         show("bad", "Could not save. Check Firebase setup.");
       }
     }
 
-    async function resetPw(id) {
+    async function changePw(id) {
       const s = students.find(function (x) { return x.id === id; });
       if (!s) return;
-      const password = genPassword();
+      const input = prompt("New password for " + id + " (at least " + MIN_PW + " characters):");
+      if (input === null) return;
+      const password = input.trim();
+      if (password.length < MIN_PW) { show("bad", "Password must be at least " + MIN_PW + " characters."); return; }
       try {
         await saveStudents([Object.assign({}, s, { password: password })]);
         await reload();
-        show("ok", "New password for " + id + ": " + password);
-      } catch (e) {
-        console.error(e);
-        show("bad", "Could not save.");
-      }
-    }
-
-    async function fillMissing() {
-      const missing = students.filter(function (s) { return !s.password; });
-      if (!missing.length) { show("ok", "Everyone already has a password."); return; }
-      try {
-        await saveStudents(missing.map(function (s) {
-          return Object.assign({}, s, { password: genPassword() });
-        }));
-        await reload();
-        show("ok", "Passwords created for " + missing.length + " student(s).");
+        show("ok", "Password changed for " + id + ".");
       } catch (e) {
         console.error(e);
         show("bad", "Could not save.");
@@ -290,7 +273,7 @@
       document.getElementById("count").textContent = students.length;
 
       students.filter(function (s) {
-        return !q || s.id.toLowerCase().includes(q) || s.name.toLowerCase().includes(q);
+        return !q || s.id.toLowerCase().includes(q) || (s.name || "").toLowerCase().includes(q);
       }).forEach(function (s) {
         const row = document.createElement("div");
         row.className = "row";
@@ -304,16 +287,14 @@
         nm.textContent = s.name;
         const pw = document.createElement("div");
         pw.className = "pw";
-        pw.textContent = "Password: " + (s.password || "(not set)") +
-          (s.roll ? "  |  Roll: " + s.roll : "") +
-          (s.batch ? "  |  Batch: " + s.batch : "");
+        pw.textContent = "Password: " + (s.password || "(not set)");
         nm.appendChild(pw);
 
         const key = document.createElement("button");
         key.className = "key";
         key.textContent = "🔑";
-        key.title = "New password";
-        key.onclick = function () { resetPw(s.id); };
+        key.title = "Change password";
+        key.onclick = function () { changePw(s.id); };
 
         const del = document.createElement("button");
         del.textContent = "✕";
@@ -330,9 +311,9 @@
     }
 
     function downloadCsv() {
-      const lines = ["ID,Name,Password,Roll No,Batch"].concat(students.map(function (s) {
-        return s.id + ',"' + s.name.replace(/"/g, '""') + '",' + (s.password || "") +
-          "," + (s.roll || "") + "," + (s.batch || "");
+      const lines = ["PRN,Name,Password"].concat(students.map(function (s) {
+        return s.id + ',"' + (s.name || "").replace(/"/g, '""') + '","' +
+          (s.password || "").replace(/"/g, '""') + '"';
       }));
       const blob = new Blob([lines.join("\n")], { type: "text/csv" });
       const a = document.createElement("a");
@@ -344,7 +325,6 @@
     window.addBulk = addBulk;
     window.addOne = addOne;
     window.downloadCsv = downloadCsv;
-    window.fillMissing = fillMissing;
     document.getElementById("search").addEventListener("input", render);
 
     if (role === "staff") reload().catch(function (e) {
