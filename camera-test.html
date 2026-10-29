@@ -1,1 +1,72 @@
- 
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Camera Test</title>
+<style>
+  body{font-family:Arial,sans-serif;background:#eef2f7;margin:0;padding:16px}
+  .card{background:#fff;border-radius:16px;padding:16px;max-width:480px;margin:auto}
+  video{width:100%;background:#000;border-radius:12px;min-height:200px}
+  button{width:100%;padding:14px;margin-top:10px;font-size:16px;border:0;border-radius:10px;background:#2563eb;color:#fff}
+  button.alt{background:#475569}
+  #log{white-space:pre-wrap;font-size:13px;margin-top:12px;background:#f1f5f9;padding:10px;border-radius:8px}
+</style>
+</head>
+<body>
+<div class="card">
+  <h2>Camera Test</h2>
+  <video id="v" autoplay muted playsinline></video>
+  <button onclick="startCam('environment')">Start Back Camera</button>
+  <button class="alt" onclick="startCam('user')">Start Front Camera</button>
+  <button class="alt" onclick="startCam(null)">Start Any Camera</button>
+  <div id="log">Button dabaa...</div>
+</div>
+
+<script>
+const v = document.getElementById('v');
+const logEl = document.getElementById('log');
+function log(t){ logEl.textContent += "\n" + t; }
+
+function stopAll(){
+  if (v.srcObject) { v.srcObject.getTracks().forEach(t => t.stop()); v.srcObject = null; }
+}
+
+async function startCam(mode){
+  logEl.textContent = "Starting...";
+  stopAll();
+  log("Secure context: " + window.isSecureContext);
+  log("getUserMedia: " + !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia));
+  log("Browser: " + navigator.userAgent);
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    log("ERROR: Ha browser camera support karat nahi. Chrome vapra.");
+    return;
+  }
+
+  const constraints = { audio:false, video: mode ? { facingMode: { ideal: mode } } : true };
+  const timer = setTimeout(() => {
+    log("10 sec zale, camera ala nahi. Permission popup aala hota ka? Dusra app camera vaparto ka?");
+  }, 10000);
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    clearTimeout(timer);
+    v.srcObject = stream;
+    await v.play();
+    const s = stream.getVideoTracks()[0].getSettings();
+    log("OK! Camera chalu. Size: " + s.width + "x" + s.height);
+    log("Jar ata pan black disla, tar dusra camera button try kara.");
+  } catch (e) {
+    clearTimeout(timer);
+    log("ERROR NAME: " + e.name);
+    log("ERROR MESSAGE: " + e.message);
+    if (e.name === "NotAllowedError") log("=> Permission Block aahe. Chrome Settings > Site settings > Camera > Allow.");
+    if (e.name === "NotFoundError") log("=> Camera sapadla nahi.");
+    if (e.name === "NotReadableError") log("=> Dusra app/tab camera vaparto. Te band kara.");
+    if (e.name === "OverconstrainedError") log("=> 'Start Any Camera' try kara.");
+  }
+}
+</script>
+</body>
+</html>
