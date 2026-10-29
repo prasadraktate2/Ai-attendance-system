@@ -32,6 +32,7 @@
       <video id="video" playsinline muted autoplay></video>
       <canvas id="canvas" hidden></canvas>
       <div class="hint">Hold the phone 20-30 cm from the QR and keep it steady.</div>
+      <button id="switchBtn" hidden>Switch Camera</button>
       <button id="retryBtn" hidden>Try again</button>
       <div class="hint" id="dbg"></div>
     </div>
@@ -53,7 +54,7 @@
 
     function show(text, cls) { result.textContent = text; result.className = cls; }
     function debug(extra) {
-      dbg.textContent = "engine: " + engine + " | camera: " + (video.videoWidth || 0) + "x" +
+      dbg.textContent = "engine: " + engine + " | " + camLabel() + " | " + (video.videoWidth || 0) + "x" +
         (video.videoHeight || 0) + " | frames: " + scans + (extra ? " | " + extra : "");
     }
 
@@ -84,23 +85,95 @@
       startCamera();
     }
 
+    let cams = [], camIdx = 0;
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+    async function openCamera(deviceId) {
+      if (stream) stream.getTracks().forEach(t => t.stop());
+      const v = { width: { ideal: 1280 }, height: { ideal: 720 } };
+      if (deviceId) v.deviceId = { exact: deviceId };
+      else v.facingMode = { ideal: "environment" };
+      stream = await navigator.mediaDevices.getUserMedia({ video: v, audio: false });
+      video.srcObject = stream;
+      await video.play();
+    }
+
+    function isBlack() {
+      if (!video.videoWidth) return true;
+      const c = document.createElement("canvas");
+      c.width = 32; c.height = 32;
+      const x = c.getContext("2d");
+      x.drawImage(video, 0, 0, 32, 32);
+      const d = x.getImageData(0, 0, 32, 32).data;
+      let sum = 0;
+      for (let i = 0; i < d.length; i += 4) sum += d[i] + d[i + 1] + d[i + 2];
+      return sum / (d.length / 4 * 3) < 6;
+    }
+
+    async function listCams() {
+      try {
+        const all = await navigator.mediaDevices.enumerateDevices();
+        cams = all.filter(d => d.kind === "videoinput");
+        const score = d => {
+          const l = (d.label || "").toLowerCase();
+          let sc = 0;
+          if (/back|rear|environment/.test(l)) sc -= 2;
+          if (/ultra|wide|macro|depth|tele|infrared/.test(l)) sc += 3;
+          if (/front|user/.test(l)) sc += 2;
+          return sc;
+        };
+        cams.sort((a, b) => score(a) - score(b));
+      } catch (e) { cams = []; }
+    }
+
+    function camLabel() {
+      const t = stream && stream.getVideoTracks()[0];
+      return t ? (t.label || "camera") : "none";
+    }
+
+    async function switchNext() {
+      if (cams.length < 2) return false;
+      camIdx = (camIdx + 1) % cams.length;
+      try { await openCamera(cams[camIdx].deviceId); } catch (e) { console.error(e); return false; }
+      return true;
+    }
+
+    document.getElementById("switchBtn").onclick = async () => {
+      show("Switching camera...", "info");
+      await switchNext();
+      await sleep(900);
+      show(isBlack() ? "This camera is black. Tap Switch Camera again." : "Point the camera at the QR code", "info");
+    };
+
     async function startCamera() {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         show("Camera needs HTTPS. Open the https link of the app on the phone.", "bad");
         return;
       }
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
-          audio: false
-        });
-        video.srcObject = stream;
-        await video.play();
+        await openCamera(null);
+        await listCams();
+        const cur = stream.getVideoTracks()[0].getSettings().deviceId;
+        const i = cams.findIndex(c => c.deviceId === cur);
+        camIdx = i >= 0 ? i : 0;
       } catch (e) {
         console.error(e);
         show("Camera not available. Allow camera permission and reload.", "bad");
         document.getElementById("retryBtn").hidden = false;
         return;
+      }
+
+      // some phones open a camera that shows only black: try the others automatically
+      await sleep(1200);
+      for (let tries = 0; tries < cams.length && isBlack(); tries++) {
+        show("Camera is black, trying another camera...", "info");
+        if (!(await switchNext())) break;
+        await sleep(1200);
+      }
+      if (cams.length > 1) document.getElementById("switchBtn").hidden = false;
+      if (isBlack()) {
+        show("Camera shows black. Close other apps using the camera, then tap Switch Camera.", "bad");
+        document.getElementById("retryBtn").hidden = false;
       }
 
       if ("BarcodeDetector" in window) {
@@ -113,7 +186,7 @@
         return;
       }
       if (!detector) engine = "jsQR";
-      show("Point the camera at the QR code", "info");
+      if (!isBlack()) show("Point the camera at the QR code", "info");
       loop = setInterval(scanFrame, 180);
     }
 
