@@ -41,7 +41,7 @@
     <div id="msg"></div>
 
     <div class="card center">
-      <label for="slot"><b>Lecture slot (today)</b></label>
+      <label for="slot"><b>Today's lecture / lab</b></label>
       <select id="slot"></select>
       <div class="hint" id="slotTime"></div>
       <button id="startBtn">Start QR Attendance</button>
@@ -66,53 +66,32 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script type="module">
+    const msg = document.getElementById("msg");
     const store = await import("./store.js");
     const { saveSession, getSession, watchPresent, getStudents,
             getSessionAttendance, markPresent, removePresent } = store;
 
-    // slots.js is optional: if it is missing on the server, built-in default times are used
-    let cfg = null;
-    try { cfg = await import("./slots.js"); } catch (e) { console.error(e); }
-    if (!cfg) {
-      const DEF = [
-        { n: 1, start: "10:00", end: "10:55" }, { n: 2, start: "11:00", end: "11:55" },
-        { n: 3, start: "12:00", end: "12:55" }, { n: 4, start: "14:00", end: "14:55" },
-        { n: 5, start: "15:00", end: "15:55" }
-      ];
-      const at = (hhmm, base) => {
-        const p = hhmm.split(":"); const d = new Date(base);
-        d.setHours(+p[0], +p[1], 0, 0); return d.getTime();
-      };
-      const slotWindowF = (n, base) => {
-        const x = DEF.find(y => y.n === n); const b = base || new Date();
-        return { startAt: at(x.start, b), endAt: at(x.end, b) + 59000 };
-      };
-      cfg = {
-        ENFORCE_TIME: true, SLOTS: DEF, slotWindow: slotWindowF,
-        currentSlot: () => {
-          const now = Date.now();
-          for (const x of DEF) { const w = slotWindowF(x.n); if (now >= w.startAt && now <= w.endAt) return x; }
-          for (const x of DEF) { if (now < slotWindowF(x.n).startAt) return x; }
-          return DEF[DEF.length - 1];
-        }
-      };
-      setTimeout(() => {
-        document.getElementById("msg").textContent =
-          "slots.js not found on server - using default times. Upload slots.js to GitHub.";
-      }, 0);
+    // timetable.js gives today's lectures/labs
+    let tt = null;
+    try { tt = await import("./timetable.js"); }
+    catch (e) {
+      console.error(e);
+      msg.textContent = "timetable.js GitHub var nahi. Upload kara.";
     }
-    const { SLOTS, ENFORCE_TIME, slotWindow, currentSlot } = cfg;
+
+    // slots.js is optional: it is only used for ENFORCE_TIME (true = scan only during lecture time)
+    let ENFORCE_TIME = true;
+    try {
+      const sl = await import("./slots.js");
+      if (typeof sl.ENFORCE_TIME !== "undefined") ENFORCE_TIME = sl.ENFORCE_TIME;
+    } catch (e) { console.error(e); }
 
     if (typeof getSessionAttendance !== "function" || typeof removePresent !== "function") {
-      setTimeout(() => {
-        document.getElementById("msg").textContent =
-          "Old store.js is on the server. Upload the NEW store.js to GitHub (manual list needs it).";
-      }, 0);
+      msg.textContent = "Old store.js is on the server. Upload the NEW store.js to GitHub.";
     }
 
     const role = (sessionStorage.getItem("attendanceRole") || "").toLowerCase();
     const userId = sessionStorage.getItem("attendanceUserId");
-    const msg = document.getElementById("msg");
     const slotSel = document.getElementById("slot");
     const pad = n => String(n).padStart(2, "0");
 
@@ -125,20 +104,44 @@
       const d = new Date();
       return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
     };
-    const sessionIdFor = n => todayStr() + "_S" + n;
 
-    // slot dropdown
-    SLOTS.forEach(s => {
+    // today's entries, recess removed. Number n = position in the day (1, 2, 3 ...)
+    let ENTRIES = [];
+    if (tt) {
+      const day = tt.TIMETABLE[tt.todayKey()] || [];
+      ENTRIES = day.filter(x => x.type !== "Recess").map((x, i) => ({ ...x, n: i + 1 }));
+      if (tt.isSunday()) {
+        msg.textContent = "Aaj Sunday aahe, lectures nahit. Monday cha timetable dakhavla aahe (test sathi).";
+      }
+    }
+    if (!ENTRIES.length && !msg.textContent) msg.textContent = "Aaj kontahi lecture nahi.";
+
+    const sessionIdFor = n => todayStr() + "_S" + n;
+    const entryOf = n => ENTRIES.find(x => x.n === n);
+    function windowOf(n) {
+      const e = entryOf(n);
+      const at = hhmm => {
+        const p = hhmm.split(":"); const d = new Date();
+        d.setHours(+p[0], +p[1], 0, 0); return d.getTime();
+      };
+      return { startAt: at(e.start), endAt: at(e.end) };
+    }
+    const label = e => e.subject + " (" + e.type + ")";
+
+    // dropdown
+    ENTRIES.forEach(e => {
       const o = document.createElement("option");
-      o.value = s.n;
-      o.textContent = "Slot " + s.n + "  (" + s.start + " - " + s.end + ")";
+      o.value = e.n;
+      o.textContent = e.n + ". " + label(e) + "  " + tt.fmt(e.start) + " - " + tt.fmt(e.end);
       slotSel.appendChild(o);
     });
-    slotSel.value = currentSlot().n;
+    if (ENTRIES.length) slotSel.value = ENTRIES[tt.currentIndex(ENTRIES)].n;
+
     function showSlotTime() {
-      const s = SLOTS.find(x => x.n === +slotSel.value);
+      const e = entryOf(+slotSel.value);
+      if (!e) return;
       document.getElementById("slotTime").textContent =
-        "QR scanning allowed only from " + s.start + " to " + s.end +
+        "QR scanning allowed only from " + tt.fmt(e.start) + " to " + tt.fmt(e.end) +
         (ENFORCE_TIME ? "" : "  (time limit is OFF for testing)");
     }
     showSlotTime();
@@ -186,7 +189,9 @@
       msg.textContent = "";
       msg.style.color = "#b91c1c";
       const n = +slotSel.value;
-      const w = slotWindow(n);
+      const e = entryOf(n);
+      if (!e) { msg.textContent = "Lecture nivda."; return; }
+      const w = windowOf(n);
       if (ENFORCE_TIME && Date.now() > w.endAt) {
         msg.textContent = "This lecture time is over. Use Manual Attendance below.";
         return;
@@ -196,6 +201,7 @@
         endAt = w.endAt;
         cur = ""; prev = "";
         await saveSession(sessionId, { active: true, slot: n, date: todayStr(), by: userId,
+          subject: e.subject, type: e.type,
           startAt: w.startAt, endAt: w.endAt, createdAt: Date.now() });
         await rotate();
         timer = setInterval(() => rotate().catch(console.error), 30000);
@@ -204,8 +210,8 @@
         document.getElementById("startBtn").hidden = true;
         document.getElementById("stopBtn").hidden = false;
         slotSel.disabled = true;
-      } catch (e) {
-        console.error(e);
+      } catch (err) {
+        console.error(err);
         msg.textContent = "Could not start. Check internet / Firestore rules.";
       }
     };
@@ -217,8 +223,10 @@
     async function ensureSession(sid, n) {
       const s = await getSession(sid);
       if (!s) {
-        const w = slotWindow(n);
+        const e = entryOf(n);
+        const w = windowOf(n);
         await saveSession(sid, { active: false, slot: n, date: todayStr(), by: userId,
+          subject: e.subject, type: e.type,
           startAt: w.startAt, endAt: w.endAt, createdAt: Date.now(), manual: true });
       }
     }
@@ -230,6 +238,7 @@
 
     async function loadList() {
       const list = document.getElementById("list");
+      if (!ENTRIES.length) { list.textContent = ""; return; }
       list.textContent = "Loading...";
       try {
         const n = +slotSel.value;
@@ -269,8 +278,8 @@
               }
               paint();
               updateSum();
-            } catch (e) {
-              console.error(e);
+            } catch (err) {
+              console.error(err);
               msg.style.color = "#b91c1c";
               msg.textContent = "Could not save. Check internet.";
             }
@@ -280,8 +289,8 @@
           list.appendChild(row);
         });
         updateSum();
-      } catch (e) {
-        console.error(e);
+      } catch (err) {
+        console.error(err);
         list.textContent = "Could not load students.";
       }
     }
@@ -295,7 +304,7 @@
         for (const st of students) {
           if (!presentSet.has(st.id)) await markPresent(sid, { id: st.id, name: st.name });
         }
-      } catch (e) { console.error(e); }
+      } catch (err) { console.error(err); }
       loadList();
     };
     document.getElementById("refreshBtn").onclick = loadList;
