@@ -1,1 +1,295 @@
- 
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LMS</title>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f1f5f9;
+      color: #172033;
+    }
+
+    header {
+      background: #000;
+      color: white;
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+    header button.back { background: none; border: none; color: white; font-size: 26px; cursor: pointer; padding: 0; }
+    header h1 { margin: 0; font-size: 22px; flex: 1; overflow-wrap: anywhere; }
+    header select { background: #000; color: white; border: none; font-size: 16px; font-weight: bold; }
+
+    .wrap { max-width: 700px; margin: 0 auto; padding: 12px; }
+
+    .searchrow { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; }
+    .searchrow input {
+      flex: 1; padding: 14px; border: none; border-radius: 12px;
+      font-size: 16px; background: white; box-shadow: 0 2px 8px #0000000f;
+    }
+    .count {
+      background: #e5e7eb; border-radius: 10px; padding: 8px 10px;
+      text-align: center; font-weight: bold; color: #334155; font-size: 14px; white-space: nowrap;
+    }
+
+    .subject {
+      display: flex; align-items: center; gap: 14px;
+      background: white; border-radius: 14px; padding: 16px; margin-bottom: 12px;
+      box-shadow: 0 2px 8px #0000000f; cursor: pointer;
+    }
+    .icon {
+      width: 64px; height: 64px; border-radius: 12px; background: #eff6ff;
+      display: flex; align-items: center; justify-content: center; font-size: 30px; flex-shrink: 0;
+    }
+    .info { flex: 1; min-width: 0; }
+    .chip {
+      display: inline-block; padding: 3px 10px; border-radius: 8px;
+      background: #fee2e2; color: #dc2626; font-size: 14px; margin-bottom: 6px;
+    }
+    .sname { font-size: 19px; color: #0f172a; overflow-wrap: anywhere; }
+    .scode { font-size: 19px; color: #334155; margin-top: 4px; }
+    .arrow { font-size: 26px; color: #94a3b8; }
+
+    .card { background: white; border-radius: 14px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 8px #0000000f; }
+    .card h3 { margin: 0 0 6px; color: #172554; overflow-wrap: anywhere; }
+    .card p { margin: 4px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .small { color: #64748b; font-size: 13px; }
+
+    label { display: block; margin: 10px 0 6px; font-weight: bold; }
+    input.f, textarea, .btn {
+      width: 100%; padding: 11px; border-radius: 8px; font-size: 16px;
+    }
+    input.f, textarea { border: 1px solid #cbd5e1; }
+    .btn { margin-top: 12px; border: none; background: #2563eb; color: white; font-weight: bold; cursor: pointer; }
+    .del { width: auto; padding: 6px 12px; background: #fee2e2; color: #b91c1c; margin-top: 8px; }
+    #msg { color: #b91c1c; font-weight: bold; }
+    .empty { text-align: center; color: #64748b; padding: 24px; }
+    a { color: #2563eb; font-weight: bold; }
+  </style>
+</head>
+
+<body>
+  <header>
+    <button class="back" id="back">←</button>
+    <h1 id="title">LMS</h1>
+    <select id="sem"><option>Semester-1</option></select>
+  </header>
+
+  <div class="wrap">
+    <!-- Subject list -->
+    <div id="listView">
+      <div class="searchrow">
+        <input id="search" type="text" placeholder="Search">
+        <div class="count" id="count">10<br>Subjects</div>
+      </div>
+      <div id="subjects"></div>
+    </div>
+
+    <!-- One subject -->
+    <div id="subjectView" hidden>
+      <div class="card" id="addCard" hidden>
+        <b>Add study material (staff)</b>
+        <label for="mtitle">Title</label>
+        <input class="f" id="mtitle" type="text" placeholder="e.g. Unit 1 notes">
+        <label for="mbody">Details (optional)</label>
+        <textarea id="mbody" rows="3"></textarea>
+        <label for="mlink">Link (optional)</label>
+        <input class="f" id="mlink" type="text" placeholder="https://...">
+        <button class="btn" id="addBtn">Add</button>
+        <p id="msg"></p>
+      </div>
+      <div id="materials"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { addPost, getPosts, deletePost } from "./store.js";
+
+    const SUBJECTS = [
+      ["Verbal Communication Skills", "26UIDAE101"],
+      ["Physics", "26UIDBS103"],
+      ["Chemistry", "26UIDBS104"],
+      ["Yoga and Meditation", "26UIDCC108"],
+      ["Engineering Mathematics-I", "26UIDES102"],
+      ["Computer Workshop Practice", "26UIDES106"],
+      ["Mandatory Course-I", "26UIDMC109"],
+      ["Computational Thinking & Problem Solving", "26UIDPC118"],
+      ["Introduction to AI tools", "26UIDPC119"],
+      ["Environmental Science", "26UIDVE107"]
+    ];
+
+    const isStaff = (sessionStorage.getItem("attendanceRole") || "").toLowerCase() === "staff";
+    const loggedIn = !!sessionStorage.getItem("attendanceUser");
+
+    const listView = document.getElementById("listView");
+    const subjectView = document.getElementById("subjectView");
+    const title = document.getElementById("title");
+    const msg = document.getElementById("msg");
+    let current = null;
+
+    function safeLink(u) { return /^https?:\/\//i.test(u) ? u : ""; }
+
+    function showList() {
+      current = null;
+      title.textContent = "LMS";
+      listView.hidden = false;
+      subjectView.hidden = true;
+      document.getElementById("sem").hidden = false;
+    }
+
+    document.getElementById("back").onclick = function () {
+      if (current) showList();
+      else window.location.href = "dashboard.html";
+    };
+
+    function renderSubjects() {
+      const q = document.getElementById("search").value.trim().toLowerCase();
+      const box = document.getElementById("subjects");
+      box.innerHTML = "";
+      const shown = SUBJECTS.filter(function (s) {
+        return !q || s[0].toLowerCase().includes(q) || s[1].toLowerCase().includes(q);
+      });
+      document.getElementById("count").innerHTML = shown.length + "<br>Subjects";
+
+      shown.forEach(function (s) {
+        const row = document.createElement("div");
+        row.className = "subject";
+
+        const icon = document.createElement("div");
+        icon.className = "icon";
+        icon.textContent = "📘";
+
+        const info = document.createElement("div");
+        info.className = "info";
+        const chip = document.createElement("span");
+        chip.className = "chip";
+        chip.textContent = "Sem - 1";
+        const name = document.createElement("div");
+        name.className = "sname";
+        name.textContent = s[0];
+        const code = document.createElement("div");
+        code.className = "scode";
+        code.textContent = s[1];
+        info.append(chip, name, code);
+
+        const arrow = document.createElement("div");
+        arrow.className = "arrow";
+        arrow.textContent = "›";
+
+        row.append(icon, info, arrow);
+        row.onclick = function () { openSubject(s); };
+        box.appendChild(row);
+      });
+    }
+
+    async function openSubject(s) {
+      current = s;
+      title.textContent = s[0];
+      listView.hidden = true;
+      subjectView.hidden = false;
+      document.getElementById("sem").hidden = true;
+      document.getElementById("addCard").hidden = !isStaff;
+      msg.textContent = "";
+      await loadMaterials();
+    }
+
+    async function loadMaterials() {
+      const box = document.getElementById("materials");
+      box.innerHTML = "";
+      let items = [];
+      try { items = await getPosts("lms"); }
+      catch (e) { console.error(e); box.textContent = "Could not load."; return; }
+
+      items = items.filter(function (p) { return p.tag === current[1] || p.tag === current[0]; });
+      items.sort(function (a, b) { return b.createdAt - a.createdAt; });
+
+      if (!items.length) {
+        const e = document.createElement("div");
+        e.className = "empty";
+        e.textContent = "No study material added yet.";
+        box.appendChild(e);
+        return;
+      }
+
+      items.forEach(function (p) {
+        const c = document.createElement("div");
+        c.className = "card";
+        const h = document.createElement("h3");
+        h.textContent = p.title;
+        c.appendChild(h);
+        if (p.body) {
+          const b = document.createElement("p");
+          b.textContent = p.body;
+          c.appendChild(b);
+        }
+        const href = safeLink(p.link || "");
+        if (href) {
+          const a = document.createElement("a");
+          a.href = href;
+          a.target = "_blank";
+          a.rel = "noopener";
+          a.textContent = "Open link";
+          c.appendChild(a);
+        }
+        const meta = document.createElement("p");
+        meta.className = "small";
+        meta.textContent = (p.by ? p.by + " · " : "") + new Date(p.createdAt).toLocaleDateString();
+        c.appendChild(meta);
+
+        if (isStaff) {
+          const d = document.createElement("button");
+          d.className = "btn del";
+          d.textContent = "Delete";
+          d.onclick = async function () {
+            if (!confirm("Delete this?")) return;
+            await deletePost(p.id);
+            loadMaterials();
+          };
+          c.appendChild(d);
+        }
+        box.appendChild(c);
+      });
+    }
+
+    document.getElementById("addBtn").onclick = async function () {
+      const t = document.getElementById("mtitle").value.trim();
+      const link = document.getElementById("mlink").value.trim();
+      if (!t) { msg.textContent = "Please enter a title."; return; }
+      if (link && !safeLink(link)) { msg.textContent = "Link must start with http:// or https://"; return; }
+      try {
+        await addPost("lms", {
+          title: t,
+          body: document.getElementById("mbody").value.trim(),
+          link: link,
+          tag: current[1],
+          by: sessionStorage.getItem("attendanceUser")
+        });
+        msg.textContent = "";
+        document.getElementById("mtitle").value = "";
+        document.getElementById("mbody").value = "";
+        document.getElementById("mlink").value = "";
+        loadMaterials();
+      } catch (e) {
+        console.error(e);
+        msg.textContent = "Could not save. Check Firebase setup.";
+      }
+    };
+
+    document.getElementById("search").addEventListener("input", renderSubjects);
+
+    if (!loggedIn) {
+      document.querySelector(".wrap").innerHTML =
+        '<div class="card"><p>Please <a href="index.html">log in</a>.</p></div>';
+    } else {
+      renderSubjects();
+    }
+  </script>
+</body>
+</html>
