@@ -13,12 +13,11 @@
     .wrap { max-width: 520px; margin: 0 auto; padding: 14px; }
     .card { background: #fff; border-radius: 14px; padding: 16px; margin-bottom: 14px; box-shadow: 0 2px 8px #00000012; text-align: center; }
     video { width: 100%; border-radius: 12px; background: #000; }
-    input, button { width: 100%; padding: 12px; border-radius: 10px; font-size: 18px; margin-top: 8px; }
-    input { border: 1px solid #cbd5e1; text-align: center; letter-spacing: 6px; }
-    button { border: 0; background: #2563eb; color: #fff; font-weight: bold; cursor: pointer; }
     #result { font-size: 18px; font-weight: bold; min-height: 28px; margin: 8px 0; }
     .ok { color: #16a34a; } .bad { color: #dc2626; } .info { color: #2563eb; }
-    .hint { color: #64748b; font-size: 14px; }
+    .hint { color: #64748b; font-size: 14px; margin-top: 8px; }
+    #dbg { font-family: monospace; font-size: 12px; color: #475569; word-break: break-all; }
+    button { margin-top: 10px; padding: 12px 18px; border: 0; border-radius: 10px; background: #2563eb; color: #fff; font-size: 16px; font-weight: bold; cursor: pointer; }
   </style>
 </head>
 <body>
@@ -30,26 +29,54 @@
   <div class="wrap">
     <div class="card">
       <div id="result" class="info">Starting camera...</div>
-      <video id="video" playsinline muted></video>
+      <video id="video" playsinline muted autoplay></video>
       <canvas id="canvas" hidden></canvas>
       <div class="hint">Hold the phone 20-30 cm from the QR and keep it steady.</div>
+      <button id="retryBtn" hidden>Try again</button>
+      <div class="hint" id="dbg"></div>
     </div>
   </div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
   <script type="module">
     import { getAllSessions, markPresent } from "./store.js";
+    import { ENFORCE_TIME } from "./slots.js";
 
     const role = (sessionStorage.getItem("attendanceRole") || "").toLowerCase();
     const userId = sessionStorage.getItem("attendanceUserId");
     const userName = sessionStorage.getItem("attendanceUser");
     const result = document.getElementById("result");
+    const dbg = document.getElementById("dbg");
     const video = document.getElementById("video");
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
-    let busy = false, done = false, stream = null;
+    let busy = false, done = false, stream = null, scans = 0, engine = "none", detector = null, loop = null;
 
     function show(text, cls) { result.textContent = text; result.className = cls; }
+    function debug(extra) {
+      dbg.textContent = "engine: " + engine + " | camera: " + (video.videoWidth || 0) + "x" +
+        (video.videoHeight || 0) + " | frames: " + scans + (extra ? " | " + extra : "");
+    }
+
+    function loadScript(src) {
+      return new Promise((resolve, reject) => {
+        const s = document.createElement("script");
+        s.src = src; s.onload = resolve; s.onerror = reject;
+        document.head.appendChild(s);
+      });
+    }
+    async function ensureJsQR() {
+      if (window.jsQR) return true;
+      const urls = [
+        "https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js",
+        "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"
+      ];
+      for (const u of urls) {
+        try { await loadScript(u); if (window.jsQR) return true; } catch (e) {}
+      }
+      return false;
+    }
+
+    document.getElementById("retryBtn").onclick = () => location.reload();
 
     if (role !== "student" || !userId) {
       show("Please log in as a student.", "bad");
@@ -59,36 +86,67 @@
 
     async function startCamera() {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        show("Camera needs HTTPS. Open the Firebase Hosting link on the phone.", "bad");
+        show("Camera needs HTTPS. Open the https link of the app on the phone.", "bad");
         return;
       }
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }
+          video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false
         });
         video.srcObject = stream;
         await video.play();
-        show("Point the camera at the QR code", "info");
-        requestAnimationFrame(tick);
       } catch (e) {
         console.error(e);
         show("Camera not available. Allow camera permission and reload.", "bad");
+        document.getElementById("retryBtn").hidden = false;
+        return;
       }
+
+      if ("BarcodeDetector" in window) {
+        try { detector = new BarcodeDetector({ formats: ["qr_code"] }); engine = "native"; } catch (e) { detector = null; }
+      }
+      const hasJsQR = await ensureJsQR();
+      if (!detector && !hasJsQR) {
+        show("Scanner library could not load. Check internet and reload.", "bad");
+        document.getElementById("retryBtn").hidden = false;
+        return;
+      }
+      if (!detector) engine = "jsQR";
+      show("Point the camera at the QR code", "info");
+      loop = setInterval(scanFrame, 180);
     }
 
-    function tick() {
-      if (done) return;
-      if (video.readyState === video.HAVE_ENOUGH_DATA && !busy) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const code = jsQR(img.data, img.width, img.height, { inversionAttempts: "attemptBoth" });
-        if (code && code.data && /^\d{6}$/.test(code.data.trim())) {
-          handle(code.data.trim());
+    async function scanFrame() {
+      if (done || busy) return;
+      if (video.readyState < 2 || !video.videoWidth) return;
+      scans++;
+      let text = "";
+      try {
+        if (detector) {
+          const found = await detector.detect(video);
+          if (found.length) text = found[0].rawValue || "";
         }
+        if (!text && window.jsQR) {
+          const scale = Math.min(1, 720 / video.videoWidth);
+          canvas.width = Math.round(video.videoWidth * scale);
+          canvas.height = Math.round(video.videoHeight * scale);
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const code = window.jsQR(img.data, img.width, img.height, { inversionAttempts: "attemptBoth" });
+          if (code) text = code.data || "";
+        }
+      } catch (e) {
+        console.error(e);
       }
-      requestAnimationFrame(tick);
+      debug(text ? "seen: " + text.slice(0, 20) : "");
+      if (!text) return;
+      text = text.trim();
+      if (/^\d{6}$/.test(text)) {
+        handle(text);
+      } else {
+        show("This QR is not an attendance QR.", "bad");
+      }
     }
 
     function tokenOk(s, token) {
@@ -99,6 +157,7 @@
     async function mark(sessionId) {
       const r = await markPresent(sessionId, { id: userId, name: userName });
       done = true;
+      clearInterval(loop);
       if (stream) stream.getTracks().forEach(t => t.stop());
       if (r === "duplicate") show("Already marked present for this lecture.", "info");
       else show("✅ Attendance marked: " + userName, "ok");
@@ -109,18 +168,29 @@
       show("Checking...", "info");
       try {
         const all = await getAllSessions();
-        const active = all.filter(x => x.active)
+        const active = all.filter(x => tokenOk(x, token))
           .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))[0];
-        if (!active || !tokenOk(active, token)) {
-          show("QR expired or closed. Scan the new QR.", "bad");
+        if (!active) {
+          show("QR expired or lecture over. Scan the new QR, or ask your teacher.", "bad");
           setTimeout(() => { busy = false; show("Point the camera at the QR code", "info"); }, 1500);
+          return;
+        }
+        const now = Date.now();
+        if (ENFORCE_TIME && active.endAt && now > active.endAt) {
+          show("Lecture time is over. Ask your teacher to mark attendance.", "bad");
+          setTimeout(() => { busy = false; }, 3000);
+          return;
+        }
+        if (ENFORCE_TIME && active.startAt && now < active.startAt) {
+          show("Lecture has not started yet.", "bad");
+          setTimeout(() => { busy = false; }, 3000);
           return;
         }
         await mark(active.id);
       } catch (e) {
         console.error(e);
-        show("Error: could not save. Check internet.", "bad");
-        setTimeout(() => { busy = false; }, 1500);
+        show("Error: could not save (" + (e.code || e.message) + ")", "bad");
+        setTimeout(() => { busy = false; }, 2500);
       }
     }
   </script>
