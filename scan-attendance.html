@@ -151,14 +151,24 @@
         return;
       }
       try {
-        await openCamera(null);
+        show("Starting camera... tap Allow if the browser asks.", "info");
+        await Promise.race([
+          openCamera(null),
+          new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 10000))
+        ]);
         await listCams();
         const cur = stream.getVideoTracks()[0].getSettings().deviceId;
         const i = cams.findIndex(c => c.deviceId === cur);
         camIdx = i >= 0 ? i : 0;
       } catch (e) {
         console.error(e);
-        show("Camera not available. Allow camera permission and reload.", "bad");
+        const n = e && (e.name || e.message);
+        let m = "Camera not available. Allow camera permission and reload.";
+        if (n === "timeout") m = "Camera is not responding. Tap Allow in the address bar, close Teams/Zoom/other tabs using the camera, then Try again.";
+        else if (n === "NotAllowedError") m = "Camera permission is blocked. Tap the lock icon in the address bar, set Camera to Allow, then Try again.";
+        else if (n === "NotFoundError") m = "No camera found on this device.";
+        else if (n === "NotReadableError") m = "Camera is being used by another app or tab. Close it, then Try again.";
+        show(m, "bad");
         document.getElementById("retryBtn").hidden = false;
         return;
       }
