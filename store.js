@@ -68,6 +68,30 @@ export async function markPresent(sessionId, student) {
   return "ok";
 }
 
+// NEW: staff manual attendance - mark a student Absent again
+export async function removePresent(sessionId, studentId) {
+  const key = sessionId + "_" + studentId;
+  if (USE_FIREBASE) {
+    const { fs, db } = await fbInit();
+    await fs.deleteDoc(fs.doc(db, "attendance", key));
+    return;
+  }
+  const all = read("demo_attendance");
+  delete all[key];
+  write("demo_attendance", all);
+}
+
+// NEW: all attendance records of one session (used by staff manual list)
+export async function getSessionAttendance(sessionId) {
+  if (USE_FIREBASE) {
+    const { fs, db } = await fbInit();
+    const snap = await fs.getDocs(
+      fs.query(fs.collection(db, "attendance"), fs.where("sessionId", "==", sessionId)));
+    return snap.docs.map(d => d.data());
+  }
+  return Object.values(read("demo_attendance")).filter(x => x.sessionId === sessionId);
+}
+
 // Calls cb(count) live. Returns an unsubscribe function.
 export function watchPresent(sessionId, cb) {
   if (USE_FIREBASE) {
