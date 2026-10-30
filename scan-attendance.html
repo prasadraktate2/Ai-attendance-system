@@ -144,9 +144,12 @@
       lectures.forEach(function (x, i) {
         const here = sessions.filter(function (s) { return s.lecture === i + 1; });
         let t;
+        const taken = here.some(function (s) {
+          return s.presentCount > 0 || attended.has(s.id);
+        });
         if (here.some(function (s) { return attended.has(s.id); })) t = tag("tP", "Present");
         else if (here.some(function (s) { return s.active; })) t = tag("tW", "Pending");
-        else if (here.length) t = tag("tA", "Absent");
+        else if (taken) t = tag("tA", "Absent");
         else if (now < mins(x.start)) t = tag("tN", "Not started");
         else if (now < mins(x.end)) t = tag("tB", "Waiting");
         else t = tag("tB", "NA");
