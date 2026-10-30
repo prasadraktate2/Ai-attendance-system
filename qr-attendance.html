@@ -167,7 +167,7 @@
 
   <script type="module">
     import { USE_FIREBASE, saveSession, watchPresent, getStudents } from "./store.js";
-    import { sessionsOn, attendanceForSession, backfillPresentCounts } from "./attendance-data.js";
+    import { sessionsOn, attendanceForSession, backfillPresentCounts, closeStaleSessions } from "./attendance-data.js";
     import { DAY_NAMES, TIMETABLE, todayKey, fmt, currentIndex } from "./timetable.js";
 
     let refreshTimer = null;
@@ -560,9 +560,10 @@
         delete box.dataset.open;
         renderSessions();
       };
-      backfillPresentCounts(saveSession).then(function (n) {
-        if (n) renderSessions();
-      }).catch(function (e) { console.error(e); });
+      backfillPresentCounts(saveSession)
+        .then(function () { return closeStaleSessions(saveSession); })
+        .then(function () { renderSessions(); })
+        .catch(function (e) { console.error(e); });
       renderSessions();
       setInterval(renderSessions, 10000);
     }
