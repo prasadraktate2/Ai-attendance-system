@@ -3,186 +3,368 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>My Attendance</title>
+  <title>Attendance</title>
+
   <style>
     * { box-sizing: border-box; }
-    body { margin: 0; font-family: Arial, sans-serif; background: #f1f5f9; color: #172033; }
-    header { background: #000; color: #fff; padding: 16px; display: flex; align-items: center; gap: 14px; }
-    header a { color: #fff; text-decoration: none; font-size: 24px; }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f1f5f9;
+      color: #172033;
+    }
+
+    header {
+      background: #000;
+      color: white;
+      padding: 16px;
+      display: flex;
+      gap: 18px;
+      align-items: center;
+    }
+    header a { color: white; text-decoration: none; font-size: 26px; }
     header h1 { margin: 0; font-size: 22px; }
-    .wrap { max-width: 760px; margin: 0 auto; padding: 14px; }
-    .card { background: #fff; border-radius: 14px; padding: 14px; margin-bottom: 14px; box-shadow: 0 2px 8px #00000012; }
-    .who { font-weight: bold; text-transform: uppercase; overflow-wrap: anywhere; }
-    .sub { color: #64748b; font-size: 14px; margin-top: 4px; }
-    .bar { height: 10px; background: #e2e8f0; border-radius: 6px; overflow: hidden; margin: 12px 0 4px; }
-    .bar div { height: 100%; background: #22c55e; width: 0; }
-    .pct { text-align: right; font-weight: bold; color: #16a34a; }
-    .sum { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; font-weight: bold; }
-    .p { color: #16a34a; } .a { color: #dc2626; } .n { color: #2563eb; } .w { color: #f59e0b; }
-    .sum span { float: right; color: #475569; }
-    .legend { font-weight: bold; margin-bottom: 10px; }
+
+    .wrap { max-width: 700px; margin: 0 auto; padding: 12px; }
+
+    .tabs { display: flex; gap: 28px; padding: 10px 16px; font-size: 20px; }
+    .tab { color: #94a3b8; font-weight: bold; cursor: pointer; padding-bottom: 6px; border: none; background: none; font-size: 20px; }
+    .tab.on { color: #1e293b; border-bottom: 3px solid #1e293b; }
+
+    .card {
+      background: white;
+      border-radius: 14px;
+      padding: 14px;
+      margin-bottom: 12px;
+      box-shadow: 0 2px 8px #0000000f;
+    }
+
+    .semrow { display: flex; align-items: center; gap: 14px; cursor: pointer; }
+    .sem {
+      background: #e5e7eb; border-radius: 12px; padding: 12px 16px;
+      font-size: 20px; font-weight: bold; text-align: center; line-height: 1.2;
+    }
+    .semmid { flex: 1; }
+    .ay { color: #64748b; margin-bottom: 8px; }
+    .ay b { color: #0d9488; }
+    .barrow { display: flex; align-items: center; gap: 10px; }
+    .bar { flex: 1; height: 8px; background: #e5e7eb; border-radius: 6px; overflow: hidden; }
+    .fill { height: 100%; background: #22c55e; }
+    .pct { font-weight: bold; color: #16a34a; }
+    .chev { font-size: 22px; }
+
+    .counts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; font-size: 18px; }
+    .counts div { display: flex; justify-content: space-between; }
+    .g { color: #16a34a; } .r { color: #dc2626; } .o { color: #f59e0b; } .b { color: #2563eb; }
+    .counts b { font-weight: bold; }
+
+    .legend { font-size: 17px; font-weight: bold; line-height: 1.5; margin-bottom: 12px; }
+
+    .subjects { margin-top: 12px; border-top: 1px solid #e2e8f0; padding-top: 8px; }
+    .subj { display: flex; justify-content: space-between; padding: 6px 0; font-size: 15px; gap: 10px; }
+
     .scroll { overflow-x: auto; }
-    table { border-collapse: collapse; width: 100%; min-width: 440px; text-align: center; }
-    th { background: #f1f5f9; padding: 10px 6px; font-size: 14px; }
-    td { padding: 14px 6px; font-weight: bold; border-top: 1px solid #fff; }
-    td.date { text-align: center; background: #fff; font-size: 14px; border-top: 1px solid #e2e8f0; white-space: nowrap; min-width: 108px; padding: 14px 10px; }
-    th:first-child { min-width: 108px; }
-    td.date small { display: block; font-weight: normal; color: #475569; }
-    .cP { background: #e9f5ea; color: #16a34a; }
-    .cA { background: #fde8ea; color: #dc2626; }
-    .cX { background: #fff; color: #334155; }
-    .cN { background: #e6f1fd; color: #2563eb; }
-    #msg { text-align: center; padding: 30px; color: #64748b; }
+    table { width: 100%; border-collapse: collapse; min-width: 460px; }
+    th { background: #f1f5f9; padding: 12px 4px; font-size: 16px; }
+    td { text-align: center; padding: 14px 4px; font-size: 19px; font-weight: bold; border-bottom: 1px solid #fff; }
+    td.d { font-size: 15px; font-weight: bold; color: #0f172a; background: white; text-align: center; }
+    .P { background: #ecf5ec; color: #22a34a; }
+    .A { background: #fdeaea; color: #dc2626; }
+    .NA { background: #e6f1fc; color: #2563eb; }
+    .PD { background: #fff4e0; color: #f59e0b; font-size: 13px; }
+    .X { background: white; color: #0f172a; }
+
+    .msg { text-align: center; padding: 30px 10px; color: #64748b; }
   </style>
 </head>
+
 <body>
-  <header>
-    <a href="dashboard.html">&larr;</a>
-    <h1>Attendance</h1>
-  </header>
+  <header><a href="dashboard.html">←</a><h1>Attendance</h1></header>
 
   <div class="wrap">
-    <div id="msg">Loading...</div>
-
-    <div id="content" hidden>
-      <div class="card">
-        <div class="who" id="who"></div>
-        <div class="sub" id="sub"></div>
-        <div class="bar"><div id="barFill"></div></div>
-        <div class="pct" id="pct">0%</div>
-      </div>
-
-      <div class="card sum">
-        <div class="p">Present <span id="sP">0</span></div>
-        <div class="a">Absent <span id="sA">0</span></div>
-        <div class="w">Total Lectures <span id="sT">0</span></div>
-        <div class="n">No Attendance <span id="sD">0</span></div>
-      </div>
-
-      <div class="card">
-        <div class="legend">P = Present, A = Absent, NA = No Attendance taken, - = No Lecture</div>
-        <div class="scroll"><table id="tbl"></table></div>
-      </div>
+    <div class="tabs">
+      <button class="tab on" id="tabCur">Current</button>
+      <button class="tab" id="tabPrev">Previous</button>
     </div>
+
+    <div id="content"><div class="msg">Loading...</div></div>
   </div>
 
   <script type="module">
-    import { getAllSessions, getStudentAttendance, getAttendedSessionIds } from "./store.js";
-    import { CLASS_INFO } from "./timetable.js";
+    import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getFirestore, collection, getDocs, query, where }
+      from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { TIMETABLE, DAY_NAMES, CLASS_INFO } from "./timetable.js";
 
-    let SL = null;
-    try { SL = await import("./slots.js"); } catch (e) { console.error(e); }
-
+    const content = document.getElementById("content");
     const role = (sessionStorage.getItem("attendanceRole") || "").toLowerCase();
-    const userId = sessionStorage.getItem("attendanceUserId");
-    const name = sessionStorage.getItem("attendanceUser");
-    const msg = document.getElementById("msg");
+    const studentId = sessionStorage.getItem("attendanceUserId");
 
-    const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-    const DAY = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-    function fmt(ymd) {
-      const p = ymd.split("-");
-      const d = new Date(+p[0], +p[1] - 1, +p[2]);
-      return [String(d.getDate()).padStart(2, "0") + "-" + MON[d.getMonth()] + "-" + String(p[0]).slice(2), DAY[d.getDay()]];
+    // Dates with no college (besides Sundays), e.g. "2026-11-09". They are skipped.
+    const HOLIDAYS = [];
+
+    const SLOTS = 5;
+    const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+
+    function message(text) {
+      content.innerHTML = "";
+      const m = document.createElement("div");
+      m.className = "msg";
+      m.textContent = text;
+      content.appendChild(m);
     }
 
-    if (role !== "student" || !userId) {
-      msg.innerHTML = 'Please log in as a student. <a href="index.html">Go to Login</a>';
-    } else {
-      load();
+    document.getElementById("tabPrev").onclick = function () {
+      document.getElementById("tabPrev").classList.add("on");
+      document.getElementById("tabCur").classList.remove("on");
+      message("No previous semester records.");
+    };
+    document.getElementById("tabCur").onclick = function () {
+      location.reload();
+    };
+
+    function dateOf(session) {
+      const d = session.date || (session.id || "").slice(0, 10);
+      return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : "";
     }
 
-    async function load() {
-      try {
-        const res = await Promise.all([getAllSessions(), getStudentAttendance(userId), getAttendedSessionIds()]);
-        const sessions = res[0], mine = res[1];
-        const attended = new Set(res[2]);                  // lectures where attendance was taken for someone
-        const presentIds = new Set(mine.map(r => r.sessionId));
-        presentIds.forEach(id => attended.add(id));
-        const sessById = {};
-        sessions.forEach(x => { sessById[x.id] = x; });
-        const nowMs = Date.now();
-        // a lecture is "held" when staff stopped it / marked manually, or its time is over, or anyone was marked
-        const isHeld = id => {
-          const x = sessById[id];
-          return attended.has(id) || !!(x && (x.held || (x.endAt && nowMs > x.endAt)));
-        };
+    function toDate(s) {
+      const p = s.split("-").map(Number);
+      return new Date(p[0], p[1] - 1, p[2]);
+    }
 
-        // only real lectures: slot sessions (…_S1 to _S5)
-        const allIds = new Set();
-        sessions.forEach(x => allIds.add(x.id));
-        presentIds.forEach(id => allIds.add(id));
-        const ids0 = Array.from(allIds)
-          .filter(id => /^\d{4}-\d{2}-\d{2}/.test(id))
-          .filter(id => /_S\d+$/.test(id))   // only real slot sessions (old test sessions are ignored)
-          .sort();
+    function label(s) {
+      const d = toDate(s);
+      return String(d.getDate()).padStart(2, "0") + "-" + MONTHS[d.getMonth()] + "-" +
+        String(d.getFullYear()).slice(2) + "\n" + DAYS[d.getDay()];
+    }
 
-        const byDate = {};
-        const loose = [];
-        ids0.forEach(id => {
-          const d = id.slice(0, 10);
-          const arr = (byDate[d] = byDate[d] || []);
-          const m = id.match(/_S(\d+)$/);
-          if (m) arr[+m[1] - 1] = id; else loose.push(id);
-        });
-        loose.forEach(id => {
-          const arr = byDate[id.slice(0, 10)];
-          let i = 0;
-          while (arr[i]) i++;
-          arr[i] = id;
-        });
+    function todayStr() {
+      const d = new Date();
+      return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" +
+        String(d.getDate()).padStart(2, "0");
+    }
 
-        const dates = Object.keys(byDate).sort().reverse();
-        const slots = Math.max(5, ...dates.map(d => byDate[d].length));
+    function academicYear() {
+      const d = new Date();
+      const y = d.getFullYear();
+      if (d.getMonth() >= 6) return y + "-" + String(y + 1).slice(2) + " - Odd";
+      return (y - 1) + "-" + String(y).slice(2) + " - Even";
+    }
 
-        let present = 0, absent = 0, na = 0;
-        let html = "<tr><th>Date</th>";
-        for (let i = 1; i <= slots; i++) html += "<th>Slot<br>" + i + "</th>";
-        html += "</tr>";
+    function mins(t) { return Number(t.slice(0, 2)) * 60 + Number(t.slice(3)); }
 
-        dates.forEach(d => {
-          const ids = byDate[d];
-          const f = fmt(d);
-          const dObj = new Date(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10));
-          const lectures = SL && SL.lecturesOn ? SL.lecturesOn(dObj) : 0;   // lectures scheduled that weekday
-          html += '<tr><td class="date">' + f[0] + "<small>" + f[1] + "</small></td>";
-          for (let i = 0; i < slots; i++) {
-            const id = ids[i];
-            if (!id) {
-              // scheduled lecture whose time is over but no attendance was taken -> NA, otherwise no lecture
-              const missed = SL && SL.slotWindow && i < lectures && SL.SLOTS.some(x => x.n === i + 1) &&
-                SL.slotWindow(i + 1, dObj).endAt < nowMs;
-              if (missed) { na++; html += '<td class="cN">NA</td>'; } else { html += '<td class="cX">-</td>'; }
-              continue;
-            }          // no lecture in this slot
-            if (presentIds.has(id)) { present++; html += '<td class="cP">P</td>'; }
-            else if (isHeld(id)) { absent++; html += '<td class="cA">A</td>'; }
-            else { na++; html += '<td class="cN">NA</td>'; }                  // lecture not finished / attendance not taken yet
+    function build(sessions, attended) {
+      // group sessions by date, then by slot number
+      const byDate = {};
+      sessions.forEach(function (s) {
+        const d = dateOf(s);
+        if (!d) return;
+        (byDate[d] = byDate[d] || []).push(s);
+      });
+
+      // Every working day from the first session until today is listed.
+      const dateSet = new Set(Object.keys(byDate));
+      const firstDate = Object.keys(byDate).sort()[0];
+      if (firstDate) {
+        const endDay = toDate(todayStr());
+        for (let x = toDate(firstDate); x <= endDay; x.setDate(x.getDate() + 1)) {
+          const ds = x.getFullYear() + "-" + String(x.getMonth() + 1).padStart(2, "0") + "-" +
+            String(x.getDate()).padStart(2, "0");
+          if (x.getDay() !== 0 && HOLIDAYS.indexOf(ds) === -1) {
+            dateSet.add(ds);
+            if (!byDate[ds]) byDate[ds] = [];
           }
-          html += "</tr>";
+        }
+      }
+
+      // A session counts only if the teacher really took attendance in it.
+      function taken(s, d) {
+        return (s.active && d === todayStr()) || s.presentCount > 0 || attended.has(s.id);
+      }
+
+      const dates = Array.from(dateSet).sort().reverse();
+      const rows = [];
+      const stat = { P: 0, A: 0, PD: 0, NA: 0 };
+      const subj = {};
+      const today = todayStr();
+      const now = new Date().getHours() * 60 + new Date().getMinutes();
+
+      dates.forEach(function (d) {
+        const list = byDate[d].filter(function (s) { return taken(s, d); }).sort(function (a, b) {
+          return (a.lecture || a.startedAt || 0) - (b.lecture || b.startedAt || 0);
+        });
+        const slots = {};
+        list.forEach(function (s, i) {
+          const n = (Number.isInteger(s.lecture) && s.lecture >= 1 && s.lecture <= SLOTS)
+            ? s.lecture : i + 1;
+          (slots[n] = slots[n] || []).push(s);
         });
 
-        const total = present + absent;
-        const pct = total ? (present * 100 / total) : 0;
-        document.getElementById("who").textContent = name;
-        document.getElementById("sub").textContent =
-          CLASS_INFO.branch + "  |  Sem " + CLASS_INFO.sem + "  |  Div " + CLASS_INFO.division + "  |  " + userId;
-        document.getElementById("barFill").style.width = pct.toFixed(0) + "%";
-        document.getElementById("pct").textContent = pct.toFixed(2) + "%";
-        document.getElementById("sP").textContent = present + " / " + total;
-        document.getElementById("sA").textContent = absent + " / " + total;
-        document.getElementById("sT").textContent = total;
-        document.getElementById("sD").textContent = na;
-        document.getElementById("tbl").innerHTML = dates.length ? html
-          : "<tr><td>No attendance sessions yet.</td></tr>";
+        const dayIdx = toDate(d).getDay();
+        const dayKey = dayIdx === 0 ? null : DAY_NAMES[dayIdx - 1];
+        const lectures = dayKey ? TIMETABLE[dayKey].filter(function (x) { return x.type !== "Recess"; }) : [];
 
-        msg.hidden = true;
-        document.getElementById("content").hidden = false;
+        if (!lectures.length) return; // no college this day (Sunday)
+
+        const cells = [];
+        for (let n = 1; n <= SLOTS; n++) {
+          // slots after the day's last lecture always show "-"
+          const here = n <= lectures.length ? slots[n] : undefined;
+          if (here) {
+            let code;
+            if (here.some(function (s) { return attended.has(s.id); })) code = "P";
+            else if (here.some(function (s) { return s.active && d === today; })) code = "PD";
+            else code = "A";
+            stat[code]++;
+            const sub = here[0].subject || "Other";
+            subj[sub] = subj[sub] || { P: 0, A: 0, PD: 0 };
+            subj[sub][code]++;
+            cells.push(code);
+          } else if (n <= lectures.length &&
+                     (d < today || (d === today && now >= mins(lectures[n - 1].end)))) {
+            stat.NA++;
+            cells.push("NA");
+          } else {
+            cells.push("X");
+          }
+        }
+        rows.push({ date: d, cells: cells });
+      });
+
+      return { rows: rows, stat: stat, subj: subj };
+    }
+
+    function render(r) {
+      const s = r.stat;
+      const total = s.P + s.A + s.PD + s.NA;
+      const counted = s.P + s.A;
+      const pct = counted ? (s.P / counted) * 100 : 0;
+      const color = pct >= 75 ? "#22c55e" : (pct >= 60 ? "#f59e0b" : "#dc2626");
+
+      content.innerHTML = "";
+
+      // Summary card
+      const top = document.createElement("div");
+      top.className = "card";
+      top.innerHTML =
+        '<div class="semrow" id="semrow">' +
+          '<div class="sem">Sem<br>' + CLASS_INFO.sem + '</div>' +
+          '<div class="semmid"><div class="ay">A.Y. <b>' + academicYear() + '</b></div>' +
+          '<div class="barrow"><div class="bar"><div class="fill" style="width:' + pct +
+          '%;background:' + color + '"></div></div>' +
+          '<div class="pct" style="color:' + color + '">' + pct.toFixed(2) + '%</div></div></div>' +
+          '<div class="chev" id="chev">⌄</div>' +
+        '</div><div class="subjects" id="subjects" hidden></div>';
+      content.appendChild(top);
+
+      const subBox = top.querySelector("#subjects");
+      Object.keys(r.subj).sort().forEach(function (name) {
+        const v = r.subj[name];
+        const c = v.P + v.A;
+        const row = document.createElement("div");
+        row.className = "subj";
+        const a = document.createElement("span");
+        a.textContent = name;
+        const b = document.createElement("b");
+        b.textContent = v.P + "/" + c + (c ? "  (" + ((v.P / c) * 100).toFixed(0) + "%)" : "");
+        row.append(a, b);
+        subBox.appendChild(row);
+      });
+      top.querySelector("#semrow").onclick = function () {
+        subBox.hidden = !subBox.hidden;
+        top.querySelector("#chev").textContent = subBox.hidden ? "⌄" : "⌃";
+      };
+
+      // Counts card
+      const counts = document.createElement("div");
+      counts.className = "card counts";
+      counts.innerHTML =
+        '<div class="g"><span>Present :</span><b>' + s.P + ' / ' + total + '</b></div>' +
+        '<div class="r"><span>Absent :</span><b>' + s.A + ' / ' + total + '</b></div>' +
+        '<div class="o"><span>Pending :</span><b>' + s.PD + ' / ' + total + '</b></div>' +
+        '<div class="b"><span>No Attendance :</span><b>' + s.NA + ' / ' + total + '</b></div>';
+      content.appendChild(counts);
+
+      // Table card
+      const card = document.createElement("div");
+      card.className = "card";
+      card.innerHTML = '<div class="legend">P = Present , A = Absent, NA = No Attendance, - = No Lecture/Lab</div>';
+
+      if (!r.rows.length) {
+        const e = document.createElement("div");
+        e.className = "msg";
+        e.textContent = "No attendance has been taken yet.";
+        card.appendChild(e);
+      } else {
+        const wrap = document.createElement("div");
+        wrap.className = "scroll";
+        const table = document.createElement("table");
+        const head = document.createElement("tr");
+        const th0 = document.createElement("th");
+        th0.textContent = "Date";
+        head.appendChild(th0);
+        for (let n = 1; n <= SLOTS; n++) {
+          const th = document.createElement("th");
+          th.innerHTML = "Slot<br>" + n;
+          head.appendChild(th);
+        }
+        table.appendChild(head);
+
+        r.rows.forEach(function (row) {
+          const tr = document.createElement("tr");
+          const td = document.createElement("td");
+          td.className = "d";
+          const parts = label(row.date).split("\n");
+          td.append(parts[0], document.createElement("br"), parts[1]);
+          tr.appendChild(td);
+          row.cells.forEach(function (c) {
+            const cell = document.createElement("td");
+            cell.className = c;
+            cell.textContent = c === "X" ? "-" : (c === "PD" ? "Pending" : c);
+            tr.appendChild(cell);
+          });
+          table.appendChild(tr);
+        });
+        wrap.appendChild(table);
+        card.appendChild(wrap);
+      }
+      content.appendChild(card);
+    }
+
+    async function start() {
+      if (role !== "student" || !studentId) {
+        message("This page is for students. Please log in as a Student.");
+        return;
+      }
+
+      let cfg = null;
+      try { cfg = (await import("./store.js")).firebaseConfig; } catch (e) { console.error(e); }
+      if (!cfg) {
+        message("In store.js, write 'export' before 'const firebaseConfig' and upload it again.");
+        return;
+      }
+
+      try {
+        const app = getApps().length ? getApp() : initializeApp(cfg);
+        const db = getFirestore(app);
+
+        const sessSnap = await getDocs(collection(db, "sessions"));
+        const sessions = sessSnap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+
+        const attSnap = await getDocs(query(collection(db, "attendance"), where("studentId", "==", studentId)));
+        const attended = new Set(attSnap.docs.map(function (d) { return d.data().sessionId; }));
+
+        render(build(sessions, attended));
       } catch (e) {
         console.error(e);
-        msg.textContent = "Could not load attendance. Check internet.";
+        message("Could not load attendance. Check your internet and Firebase.");
       }
     }
+
+    start();
   </script>
 </body>
 </html>
