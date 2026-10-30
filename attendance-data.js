@@ -1,4 +1,4 @@
- // Read helpers for the Attendance screens (reads Firestore directly).
+// Read helpers for the Attendance screens (reads Firestore directly).
 // Needs "export const firebaseConfig" in store.js.
 import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, collection, getDocs, query, where }
@@ -39,4 +39,18 @@ export async function attendanceForSession(sessionId) {
   const db = await getDb();
   const snap = await getDocs(query(collection(db, "attendance"), where("sessionId", "==", sessionId)));
   return snap.docs.map(function (d) { return d.data(); });
+}
+
+// Old sessions have no "presentCount". This counts the attendance records of each
+// one and saves the number, so the app knows whether attendance was really taken.
+// saveFn is saveSession from store.js. Returns how many sessions were updated.
+export async function backfillPresentCounts(saveFn) {
+  const db = await getDb();
+  const snap = await getDocs(collection(db, "sessions"));
+  const old = snap.docs.filter(function (d) { return d.data().presentCount === undefined; });
+  for (const d of old) {
+    const a = await getDocs(query(collection(db, "attendance"), where("sessionId", "==", d.id)));
+    await saveFn(d.id, { presentCount: a.size });
+  }
+  return old.length;
 }
