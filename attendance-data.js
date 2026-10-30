@@ -55,3 +55,27 @@ export async function backfillPresentCounts(saveFn) {
   return old.length;
 }
 
+// A session left "active" (staff did not press Stop) is closed once its lecture
+// time is over or the day has passed. saveFn is saveSession from store.js.
+export async function closeStaleSessions(saveFn) {
+  const db = await getDb();
+  const d = new Date();
+  const today = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" +
+    String(d.getDate()).padStart(2, "0");
+  const nowMin = d.getHours() * 60 + d.getMinutes();
+  const snap = await getDocs(collection(db, "sessions"));
+  let closed = 0;
+  for (const doc of snap.docs) {
+    const s = doc.data();
+    if (!s.active) continue;
+    const date = s.date || doc.id.slice(0, 10);
+    const t = (s.time || "").split("-");
+    const over = date < today ||
+      (date === today && t.length === 2 && nowMin >= Number(t[1].slice(0, 2)) * 60 + Number(t[1].slice(3)) + 2);
+    if (over) {
+      await saveFn(doc.id, { active: false, token: "", prevToken: "", tokenExpiresAt: 0, endedAt: Date.now() });
+      closed++;
+    }
+  }
+  return closed;
+}
