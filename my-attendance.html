@@ -180,9 +180,18 @@
         }
       }
 
+      // A session is "live" only while its lecture time is still running.
+      function live(s, d) {
+        if (!s.active || d !== todayStr()) return false;
+        const t = (s.time || "").split("-");
+        if (t.length !== 2) return true;
+        const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+        return nowMin < mins(t[1]) + 2;
+      }
+
       // A session counts only if the teacher really took attendance in it.
       function taken(s, d) {
-        return (s.active && d === todayStr()) || s.presentCount > 0 || attended.has(s.id);
+        return live(s, d) || s.presentCount > 0 || attended.has(s.id);
       }
 
       const dates = Array.from(dateSet).sort().reverse();
@@ -216,7 +225,7 @@
           if (here) {
             let code;
             if (here.some(function (s) { return attended.has(s.id); })) code = "P";
-            else if (here.some(function (s) { return s.active && d === today; })) code = "PD";
+            else if (here.some(function (s) { return live(s, d); })) code = "PD";
             else code = "A";
             stat[code]++;
             const sub = here[0].subject || "Other";
