@@ -92,32 +92,32 @@
       try {
         const res = await Promise.all([getAllSessions(), getStudentAttendance(userId), getAttendedSessionIds()]);
         const sessions = res[0], mine = res[1];
-        const attended = new Set(res[2]);                  // lectures where attendance was taken for someone
+        const attended = new Set(res[2]);
         const presentIds = new Set(mine.map(r => r.sessionId));
         presentIds.forEach(id => attended.add(id));
+        const sessById = {};
+        sessions.forEach(x => { sessById[x.id] = x; });
+        const nowMs = Date.now();
+        const isHeld = id => {
+          const x = sessById[id];
+          return attended.has(id) || !!(x && (x.held || (x.endAt && nowMs > x.endAt)));
+        };
 
-        // only real lectures: slot sessions (…_S1 to _S5) + old-style sessions that have attendance
+        // only real lectures: slot sessions (_S1 to _S5)
         const allIds = new Set();
         sessions.forEach(x => allIds.add(x.id));
         presentIds.forEach(id => allIds.add(id));
         const ids0 = Array.from(allIds)
           .filter(id => /^\d{4}-\d{2}-\d{2}/.test(id))
-          .filter(id => /_S\d+$/.test(id) || attended.has(id))
+          .filter(id => /_S\d+$/.test(id))
           .sort();
 
         const byDate = {};
-        const loose = [];
         ids0.forEach(id => {
           const d = id.slice(0, 10);
           const arr = (byDate[d] = byDate[d] || []);
           const m = id.match(/_S(\d+)$/);
-          if (m) arr[+m[1] - 1] = id; else loose.push(id);
-        });
-        loose.forEach(id => {
-          const arr = byDate[id.slice(0, 10)];
-          let i = 0;
-          while (arr[i]) i++;
-          arr[i] = id;
+          arr[+m[1] - 1] = id;
         });
 
         const dates = Object.keys(byDate).sort().reverse();
@@ -134,10 +134,10 @@
           html += '<tr><td class="date">' + f[0] + "<small>" + f[1] + "</small></td>";
           for (let i = 0; i < slots; i++) {
             const id = ids[i];
-            if (!id) { html += '<td class="cX">-</td>'; continue; }          // no lecture in this slot
+            if (!id) { html += '<td class="cX">-</td>'; continue; }
             if (presentIds.has(id)) { present++; html += '<td class="cP">P</td>'; }
-            else if (attended.has(id)) { absent++; html += '<td class="cA">A</td>'; }
-            else { na++; html += '<td class="cN">NA</td>'; }                  // lecture slot, but nobody was marked
+            else if (isHeld(id)) { absent++; html += '<td class="cA">A</td>'; }
+            else { na++; html += '<td class="cN">NA</td>'; }
           }
           html += "</tr>";
         });
