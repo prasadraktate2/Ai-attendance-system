@@ -148,7 +148,11 @@
           return s.presentCount > 0 || attended.has(s.id);
         });
         if (here.some(function (s) { return attended.has(s.id); })) t = tag("tP", "Present");
-        else if (here.some(function (s) { return s.active; })) t = tag("tW", "Pending");
+        else if (here.some(function (s) {
+          if (!s.active) return false;
+          const tt = (s.time || "").split("-");
+          return tt.length !== 2 || now < mins(tt[1]) + 2;
+        })) t = tag("tW", "Pending");
         else if (taken) t = tag("tA", "Absent");
         else if (now < mins(x.start)) t = tag("tN", "Not started");
         else if (now < mins(x.end)) t = tag("tB", "Waiting");
