@@ -3,312 +3,569 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Take Attendance</title>
+  <title>AI Smart Attendance - QR Generator</title>
+
   <style>
     * { box-sizing: border-box; }
-    body { margin: 0; font-family: Arial, sans-serif; background: #f1f5f9; color: #172033; }
-    header { background: #000; color: #fff; padding: 16px; display: flex; align-items: center; gap: 14px; }
-    header a { color: #fff; text-decoration: none; font-size: 24px; }
-    header h1 { margin: 0; font-size: 22px; }
-    .wrap { max-width: 560px; margin: 0 auto; padding: 14px; }
-    .card { background: #fff; border-radius: 14px; padding: 18px; margin-bottom: 14px; box-shadow: 0 2px 8px #00000012; }
-    .center { text-align: center; }
-    select { width: 100%; padding: 12px; font-size: 16px; border-radius: 10px; border: 1px solid #cbd5e1; margin: 6px 0; }
-    button { padding: 12px 20px; border: 0; border-radius: 10px; font-size: 16px; font-weight: bold; color: #fff; background: #2563eb; cursor: pointer; margin: 4px 0; }
-    button.stop { background: #dc2626; }
-    button.sec { background: #475569; font-size: 14px; padding: 9px 14px; }
-    #qrWrap { display: inline-block; background: #fff; padding: 22px; margin: 16px 0 8px; border: 1px solid #e2e8f0; border-radius: 12px; }
-    #qr img, #qr canvas { display: block; max-width: 100%; height: auto; }
-    .hint { color: #64748b; font-size: 14px; }
-    .count { font-size: 22px; margin-top: 12px; }
-    #msg { font-weight: bold; margin-bottom: 10px; text-align: center; color: #b91c1c; }
-    h3 { margin: 0 0 6px; }
-    .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid #e2e8f0; }
-    .row b { display: block; overflow-wrap: anywhere; }
-    .row small { color: #64748b; }
-    .tg { min-width: 96px; margin: 0; padding: 9px 10px; font-size: 14px; background: #dc2626; }
-    .tg.on { background: #16a34a; }
-    #sum { font-weight: bold; margin: 8px 0; }
+
+    body {
+      margin: 0;
+      padding: 16px;
+      font-family: Arial, sans-serif;
+      background: #f1f5f9;
+      color: #172033;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 20px auto;
+      padding: 24px;
+      background: white;
+      border-radius: 14px;
+      box-shadow: 0 4px 15px #00000010;
+      text-align: center;
+    }
+
+    h1 { color: #123b73; }
+
+    label {
+      display: block;
+      text-align: left;
+      margin: 14px 0 6px;
+      font-weight: bold;
+    }
+
+    select, button {
+      width: 100%;
+      padding: 12px;
+      border-radius: 7px;
+      font-size: 16px;
+    }
+
+    select {
+      border: 1px solid #cbd5e1;
+      background: white;
+    }
+
+    button {
+      margin-top: 12px;
+      border: none;
+      background: #123b73;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .stop { background: #b91c1c; }
+
+    #qr {
+      display: flex;
+      justify-content: center;
+      margin: 22px auto;
+      min-height: 10px;
+    }
+
+    #status {
+      font-weight: bold;
+      overflow-wrap: anywhere;
+    }
+
+    #countdown {
+      font-size: 18px;
+      color: #123b73;
+      font-weight: bold;
+    }
+
+    #present {
+      display: inline-block;
+      margin-top: 6px;
+      padding: 8px 16px;
+      border-radius: 8px;
+      background: #dbeafe;
+      color: #123b73;
+      font-weight: bold;
+      font-size: 18px;
+    }
+
+    .note {
+      color: #64748b;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    a { color: #123b73; }
+
+    .datebar { background: #dbeafe; color: #123b73; border-radius: 10px; padding: 10px; font-weight: bold; margin: 8px 0 4px; }
+    .linkbtn { display: block; margin-top: 12px; padding: 12px; border-radius: 7px; background: #475569; color: white; text-decoration: none; font-weight: bold; }
+    .datepick { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 7px; font-size: 15px; margin-bottom: 8px; }
+
+    .sess { text-align: left; margin-top: 18px; border-top: 1px solid #e2e8f0; padding-top: 12px; }
+    .sess h3 { margin: 0 0 8px; color: #123b73; }
+    .srow { padding: 10px 0; border-bottom: 1px solid #e2e8f0; }
+    .stop { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .sname { font-weight: bold; }
+    .ssub { font-size: 12px; color: #64748b; }
+    .scount { background: #dbeafe; color: #123b73; border-radius: 8px; padding: 4px 10px; font-weight: bold; white-space: nowrap; }
+    .mini { width: auto; margin: 6px 0 0; padding: 6px 12px; font-size: 13px; background: #475569; }
+    .abs { margin-top: 6px; font-size: 13px; }
+    .abs div { display: flex; justify-content: space-between; padding: 4px 0; border-top: 1px solid #f1f5f9; gap: 8px; }
   </style>
 </head>
+
 <body>
-  <header>
-    <a href="dashboard.html">&larr;</a>
-    <h1>Take Attendance</h1>
-  </header>
+  <div class="container">
+    <h1>📷 AI Smart Attendance</h1>
+    <h2>QR Attendance Generator</h2>
+    <p>Staff can generate a QR code for a classroom lecture.</p>
+    <div class="datebar" id="dateBar"></div>
 
-  <div class="wrap">
-    <div id="msg"></div>
+    <label for="day">Day</label>
+    <select id="day"></select>
 
-    <div class="card center">
-      <label for="slot"><b>Lecture slot (today)</b></label>
-      <select id="slot"></select>
-      <div class="hint" id="slotTime"></div>
-      <button id="startBtn">Start QR Attendance</button>
-      <button id="stopBtn" class="stop" hidden>Stop Attendance</button>
+    <label for="slot">Select Lecture</label>
+    <select id="slot"></select>
 
-      <div id="box" hidden>
-        <div id="qrWrap"><div id="qr"></div></div>
-        <div class="hint">Students open Attendance and scan this QR. It changes every 30 seconds. Scanning closes automatically when the lecture time ends.</div>
-        <div class="count">Present: <b id="count">0</b></div>
-      </div>
+    <button id="generateBtn" onclick="generateQR()">
+      Generate QR Code
+    </button>
+
+    <button id="stopBtn" class="stop" onclick="stopQR()" hidden>
+      Stop QR
+    </button>
+
+    <div id="qr"></div>
+    <p id="status">Select a subject and lecture to begin.</p>
+    <p id="countdown"></p>
+    <div id="present" hidden>Present: 0</div>
+
+    <div id="demoBox" hidden>
+      <p class="note">DEMO MODE: copy this QR text and paste it in the scan page.</p>
+      <textarea id="demoText" readonly rows="3" style="width:100%;font-size:12px;"></textarea>
     </div>
 
-    <div class="card">
-      <h3>Manual Attendance</h3>
-      <div class="hint">Use this after lecture time or for students who could not scan. Tap a student to change Present / Absent.</div>
-      <button class="sec" id="refreshBtn">Refresh List</button>
-      <button class="sec" id="allBtn">Mark All Present</button>
-      <div id="sum"></div>
-      <div id="list"></div>
+    <p class="note">
+      QR changes every 10 seconds. Student scans are counted live.
+    </p>
+
+    <a class="linkbtn" href="manual-attendance.html">✍️ Mark attendance manually (past dates)</a>
+
+    <div class="sess">
+      <h3>Sessions</h3>
+      <input class="datepick" type="date" id="viewDate">
+      <div id="sessionsBox">Loading...</div>
     </div>
+
+    <p><a href="dashboard.html">← Back to Dashboard</a></p>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
   <script type="module">
-    const store = await import("./store.js");
-    const { saveSession, getSession, watchPresent, getStudents,
-            getSessionAttendance, markPresent, removePresent } = store;
+    import { USE_FIREBASE, saveSession, watchPresent, getStudents } from "./store.js";
+    import { sessionsOn, attendanceForSession, backfillPresentCounts } from "./attendance-data.js";
+    import { DAY_NAMES, TIMETABLE, todayKey, fmt, currentIndex } from "./timetable.js";
 
-    // slots.js is optional: if it is missing on the server, built-in default times are used
-    let cfg = null;
-    try { cfg = await import("./slots.js"); } catch (e) { console.error(e); }
-    if (!cfg) {
-      const DEF = [
-        { n: 1, start: "10:00", end: "10:55" }, { n: 2, start: "11:00", end: "11:55" },
-        { n: 3, start: "12:00", end: "12:55" }, { n: 4, start: "14:00", end: "14:55" },
-        { n: 5, start: "15:00", end: "15:55" }
-      ];
-      const at = (hhmm, base) => {
-        const p = hhmm.split(":"); const d = new Date(base);
-        d.setHours(+p[0], +p[1], 0, 0); return d.getTime();
-      };
-      const slotWindowF = (n, base) => {
-        const x = DEF.find(y => y.n === n); const b = base || new Date();
-        return { startAt: at(x.start, b), endAt: at(x.end, b) + 59000 };
-      };
-      cfg = {
-        ENFORCE_TIME: true, SLOTS: DEF, slotWindow: slotWindowF,
-        currentSlot: () => {
-          const now = Date.now();
-          for (const x of DEF) { const w = slotWindowF(x.n); if (now >= w.startAt && now <= w.endAt) return x; }
-          for (const x of DEF) { if (now < slotWindowF(x.n).startAt) return x; }
-          return DEF[DEF.length - 1];
-        }
-      };
-      setTimeout(() => {
-        document.getElementById("msg").textContent =
-          "slots.js not found on server - using default times. Upload slots.js to GitHub.";
-      }, 0);
-    }
-    const { SLOTS, ENFORCE_TIME, slotWindow, currentSlot } = cfg;
+    let refreshTimer = null;
+    let countdownTimer = null;
+    let unsubscribePresent = null;
+    let expiresAt = 0;
+    let running = false;
+    let sessionId = null;
+    let currentToken = null;
 
-    if (typeof getSessionAttendance !== "function" || typeof removePresent !== "function") {
-      setTimeout(() => {
-        document.getElementById("msg").textContent =
-          "Old store.js is on the server. Upload the NEW store.js to GitHub (manual list needs it).";
-      }, 0);
+    const statusBox = document.getElementById("status");
+    const qrBox = document.getElementById("qr");
+    const countdownBox = document.getElementById("countdown");
+    const presentBox = document.getElementById("present");
+    const demoBox = document.getElementById("demoBox");
+    const demoText = document.getElementById("demoText");
+    const generateBtn = document.getElementById("generateBtn");
+    const stopBtn = document.getElementById("stopBtn");
+
+    function checkStaff() {
+      const role = (sessionStorage.getItem("attendanceRole") || "").toLowerCase();
+      const user = sessionStorage.getItem("attendanceUser");
+
+      if (!user || role !== "staff") {
+        document.querySelector(".container").innerHTML =
+          '<h1>Staff Login Required</h1>' +
+          '<p>Please log in using the Staff option.</p>' +
+          '<p><a href="index.html">Go to Login</a></p>';
+        return false;
+      }
+      return true;
     }
 
-    const role = (sessionStorage.getItem("attendanceRole") || "").toLowerCase();
-    const userId = sessionStorage.getItem("attendanceUserId");
-    const msg = document.getElementById("msg");
-    const slotSel = document.getElementById("slot");
-    const pad = n => String(n).padStart(2, "0");
-
-    if (role !== "staff") {
-      msg.innerHTML = 'Please log in as staff. <a href="index.html">Go to Login</a>';
-      document.querySelectorAll(".card").forEach(c => c.hidden = true);
+    // Lectures of a day (recess removed).
+    function lecturesFor(day) {
+      return TIMETABLE[day].filter(function (x) { return x.type !== "Recess"; });
     }
 
-    const todayStr = () => {
+    function fillSlots(day, selectNow) {
+      const list = lecturesFor(day);
+      const slotSel = document.getElementById("slot");
+      slotSel.innerHTML = "";
+      list.forEach(function (x, i) {
+        const o = document.createElement("option");
+        o.value = i;
+        o.textContent = (i + 1) + ". " + fmt(x.start) + " - " + fmt(x.end) +
+          " | " + x.type + ": " + x.subject;
+        slotSel.appendChild(o);
+      });
+      slotSel.value = selectNow ? currentIndex(list) : 0;
+    }
+
+    function setupTimetable() {
+      const daySel = document.getElementById("day");
+      DAY_NAMES.forEach(function (d) {
+        const o = document.createElement("option");
+        o.value = d;
+        o.textContent = d;
+        daySel.appendChild(o);
+      });
+      daySel.value = todayKey();
+      fillSlots(daySel.value, true);
+      daySel.addEventListener("change", function () { fillSlots(daySel.value, false); });
+    }
+
+    const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const WDAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+
+    function prettyDate(s) {
+      const p = s.split("-").map(Number);
+      const d = new Date(p[0], p[1] - 1, p[2]);
+      return WDAYS[d.getDay()] + ", " + String(d.getDate()).padStart(2, "0") + "-" +
+        MONTHS[d.getMonth()] + "-" + d.getFullYear();
+    }
+
+    // true = QR works only during the lecture time. Set false only for testing.
+    const ENFORCE_LECTURE_TIME = true;
+    const EARLY_MINUTES = 5;
+    let lectureEnd = 0;
+
+    function minsOf(t) { return Number(t.slice(0, 2)) * 60 + Number(t.slice(3)); }
+
+    // Returns a message if the QR must not be generated now, else "".
+    function timeProblem(day, slot) {
+      const idx = new Date().getDay();
+      const realDay = idx === 0 ? null : DAY_NAMES[idx - 1];
+      if (day !== realDay) return "QR can be generated only for today's lectures.";
+      const now = new Date().getHours() * 60 + new Date().getMinutes();
+      const start = minsOf(slot.start);
+      const end = minsOf(slot.end);
+      if (now < start - EARLY_MINUTES) {
+        return "This lecture starts at " + fmt(slot.start) + ". QR can be generated " +
+          EARLY_MINUTES + " minutes before it starts.";
+      }
+      if (now >= end) {
+        return "This lecture ended at " + fmt(slot.end) +
+          ". Use manual attendance for students who missed it.";
+      }
+      return "";
+    }
+
+    let rosterCache = null;
+
+    async function renderSessions() {
+      const box = document.getElementById("sessionsBox");
+      if (!box || box.dataset.open) return;
+      const viewDate = document.getElementById("viewDate").value || todayString();
+
+      let list;
+      try {
+        list = await sessionsOn(viewDate);
+        if (!rosterCache) rosterCache = await getStudents();
+      } catch (e) {
+        console.error(e);
+        box.textContent = "Could not load sessions.";
+        return;
+      }
+
+      box.innerHTML = "";
+      if (!list.length) {
+        box.textContent = "No sessions on " + prettyDate(viewDate) + ".";
+        return;
+      }
+
+      for (const sess of list) {
+        const rec = await attendanceForSession(sess.id);
+        const present = new Set(rec.map(function (r) { return r.studentId; }));
+        const total = rosterCache.length;
+
+        const row = document.createElement("div");
+        row.className = "srow";
+
+        const top = document.createElement("div");
+        top.className = "stop";
+        const left = document.createElement("div");
+        const nm = document.createElement("div");
+        nm.className = "sname";
+        nm.textContent = sess.subject;
+        const sub = document.createElement("div");
+        sub.className = "ssub";
+        sub.textContent = "Lecture " + sess.lecture + (sess.time ? " · " + sess.time : "") + (sess.active ? " · live" : "");
+        left.append(nm, sub);
+        const cnt = document.createElement("div");
+        cnt.className = "scount";
+        cnt.textContent = present.size + (total ? " / " + total : "");
+        top.append(left, cnt);
+        row.appendChild(top);
+
+        const btn = document.createElement("button");
+        btn.className = "mini";
+        btn.textContent = "Show absent list";
+        const abs = document.createElement("div");
+        abs.className = "abs";
+        abs.hidden = true;
+        btn.onclick = function () {
+          if (!abs.hidden) {
+            abs.hidden = true;
+            btn.textContent = "Show absent list";
+            box.dataset.open = "";
+            delete box.dataset.open;
+            return;
+          }
+          abs.innerHTML = "";
+          const absent = rosterCache.filter(function (st) { return !present.has(st.id); });
+          if (!rosterCache.length) abs.textContent = "Add students first (Students tile).";
+          else if (!absent.length) abs.textContent = "Everyone is present.";
+          else absent.forEach(function (st) {
+            const r = document.createElement("div");
+            const a = document.createElement("span");
+            a.textContent = st.id;
+            const b = document.createElement("span");
+            b.textContent = st.name;
+            r.append(a, b);
+            abs.appendChild(r);
+          });
+          abs.hidden = false;
+          btn.textContent = "Hide absent list (" + absent.length + ")";
+          box.dataset.open = "1";
+        };
+        row.append(btn, abs);
+        box.appendChild(row);
+      }
+    }
+
+    function randomToken() {
+      const bytes = new Uint8Array(8);
+      crypto.getRandomValues(bytes);
+      return Array.from(bytes, b => b.toString(16).padStart(2, "0")).join("");
+    }
+
+    function todayString() {
       const d = new Date();
-      return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
-    };
-    const sessionIdFor = n => todayStr() + "_S" + n;
-
-    // slot dropdown: only the lectures that happen today (see LECTURES_BY_DAY in slots.js)
-    const lecturesToday = typeof cfg.lecturesOn === "function" ? cfg.lecturesOn(new Date()) : SLOTS.length;
-    const shown = SLOTS.filter(s => s.n <= (lecturesToday || SLOTS.length));
-    shown.forEach(s => {
-      const o = document.createElement("option");
-      o.value = s.n;
-      o.textContent = "Slot " + s.n + "  (" + s.start + " - " + s.end + ")";
-      slotSel.appendChild(o);
-    });
-    const cs = currentSlot().n;
-    slotSel.value = shown.some(s => s.n === cs) ? cs : shown[shown.length - 1].n;
-    function showSlotTime() {
-      const s = SLOTS.find(x => x.n === +slotSel.value);
-      document.getElementById("slotTime").textContent =
-        "QR scanning allowed only from " + s.start + " to " + s.end +
-        (ENFORCE_TIME ? "" : "  (time limit is OFF for testing)");
+      return d.getFullYear() + "-" +
+        String(d.getMonth() + 1).padStart(2, "0") + "-" +
+        String(d.getDate()).padStart(2, "0");
     }
-    showSlotTime();
 
-    // ---------- QR attendance ----------
-    let sessionId = null, timer = null, unsub = null, cur = "", prev = "", endAt = 0;
-    const newToken = () => String(Math.floor(100000 + Math.random() * 900000));
+    function slug(text) {
+      return text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    }
 
-    function draw() {
+    async function generateQR() {
+      if (!checkStaff()) return;
+
       if (typeof QRCode === "undefined") {
-        msg.style.color = "#b91c1c";
-        msg.textContent = "QR library could not load. Check internet and reload.";
+        statusBox.textContent = "QR library did not load. Check your internet connection.";
         return;
       }
-      const el = document.getElementById("qr");
-      el.innerHTML = "";
-      new QRCode(el, { text: cur, width: 300, height: 300, correctLevel: QRCode.CorrectLevel.L });
-    }
 
-    async function rotate() {
-      if (ENFORCE_TIME && Date.now() > endAt) {
-        await stopQr("Lecture time is over. QR closed. Use Manual Attendance for the rest.");
+      await stopQR(true);
+
+      running = true;
+      generateBtn.disabled = true;
+      stopBtn.hidden = false;
+
+      const day = document.getElementById("day").value;
+      const slots = lecturesFor(day);
+      const slotIndex = Number(document.getElementById("slot").value);
+      const slot = slots[slotIndex];
+      if (!slot) {
+        statusBox.textContent = "No lecture selected.";
+        running = false;
+        generateBtn.disabled = false;
+        stopBtn.hidden = true;
         return;
       }
-      prev = cur;
-      cur = newToken();
-      await saveSession(sessionId, { token: cur, prevToken: prev, tokenAt: Date.now() });
-      draw();
-    }
-
-    async function stopQr(text) {
-      clearInterval(timer);
-      if (unsub) unsub();
-      try { await saveSession(sessionId, { active: false, held: true, token: "", prevToken: "" }); } catch (e) {}
-      document.getElementById("box").hidden = true;
-      document.getElementById("stopBtn").hidden = true;
-      document.getElementById("startBtn").hidden = false;
-      slotSel.disabled = false;
-      await loadList();
-      msg.style.color = "#16a34a";
-      msg.textContent = (text || "Attendance stopped.") + " Present " + presentSet.size +
-        ", Absent " + (students.length - presentSet.size) +
-        ". Students who did not scan are marked Absent.";
-    }
-
-    document.getElementById("startBtn").onclick = async () => {
-      msg.textContent = "";
-      msg.style.color = "#b91c1c";
-      const n = +slotSel.value;
-      const w = slotWindow(n);
-      if (ENFORCE_TIME && Date.now() > w.endAt) {
-        msg.textContent = "This lecture time is over. Use Manual Attendance below.";
-        return;
-      }
-      try {
-        sessionId = sessionIdFor(n);
-        endAt = w.endAt;
-        cur = ""; prev = "";
-        await saveSession(sessionId, { active: true, slot: n, date: todayStr(), by: userId,
-          startAt: w.startAt, endAt: w.endAt, createdAt: Date.now() });
-        await rotate();
-        timer = setInterval(() => rotate().catch(console.error), 30000);
-        unsub = watchPresent(sessionId, c => document.getElementById("count").textContent = c);
-        document.getElementById("box").hidden = false;
-        document.getElementById("startBtn").hidden = true;
-        document.getElementById("stopBtn").hidden = false;
-        slotSel.disabled = true;
-      } catch (e) {
-        console.error(e);
-        msg.textContent = "Could not start. Check internet / Firestore rules.";
-      }
-    };
-    document.getElementById("stopBtn").onclick = () => stopQr("Attendance stopped.");
-
-    // ---------- Manual attendance ----------
-    let students = [], presentSet = new Set();
-
-    async function ensureSession(sid, n) {
-      const s = await getSession(sid);
-      if (!s) {
-        const w = slotWindow(n);
-        await saveSession(sid, { active: false, held: true, slot: n, date: todayStr(), by: userId,
-          startAt: w.startAt, endAt: w.endAt, createdAt: Date.now(), manual: true });
-      } else if (!s.held) {
-        await saveSession(sid, { held: true });
-      }
-    }
-
-    function updateSum() {
-      document.getElementById("sum").textContent =
-        "Present " + presentSet.size + " / " + students.length;
-    }
-
-    async function loadList() {
-      const list = document.getElementById("list");
-      list.textContent = "Loading...";
-      try {
-        const n = +slotSel.value;
-        const sid = sessionIdFor(n);
-        const res = await Promise.all([getStudents(), getSessionAttendance(sid)]);
-        students = res[0];
-        presentSet = new Set(res[1].map(r => r.studentId));
-        list.innerHTML = "";
-        if (!students.length) { list.textContent = "No students added yet."; updateSum(); return; }
-        students.forEach(st => {
-          const row = document.createElement("div");
-          row.className = "row";
-          const info = document.createElement("div");
-          const b = document.createElement("b");
-          b.textContent = st.name;
-          const sm = document.createElement("small");
-          sm.textContent = st.id + (st.roll ? "  |  Roll " + st.roll : "");
-          info.append(b, sm);
-          const btn = document.createElement("button");
-          btn.className = "tg";
-          const paint = () => {
-            const on = presentSet.has(st.id);
-            btn.textContent = on ? "Present" : "Absent";
-            btn.classList.toggle("on", on);
-          };
-          paint();
-          btn.onclick = async () => {
-            btn.disabled = true;
-            try {
-              await ensureSession(sid, n);
-              if (presentSet.has(st.id)) {
-                await removePresent(sid, st.id);
-                presentSet.delete(st.id);
-              } else {
-                await markPresent(sid, { id: st.id, name: st.name });
-                presentSet.add(st.id);
-              }
-              paint();
-              updateSum();
-            } catch (e) {
-              console.error(e);
-              msg.style.color = "#b91c1c";
-              msg.textContent = "Could not save. Check internet.";
-            }
-            btn.disabled = false;
-          };
-          row.append(info, btn);
-          list.appendChild(row);
-        });
-        updateSum();
-      } catch (e) {
-        console.error(e);
-        list.textContent = "Could not load students.";
-      }
-    }
-
-    document.getElementById("allBtn").onclick = async () => {
-      if (!students.length) return;
-      const n = +slotSel.value;
-      const sid = sessionIdFor(n);
-      try {
-        await ensureSession(sid, n);
-        for (const st of students) {
-          if (!presentSet.has(st.id)) await markPresent(sid, { id: st.id, name: st.name });
+      if (ENFORCE_LECTURE_TIME) {
+        const problem = timeProblem(day, slot);
+        if (problem) {
+          statusBox.textContent = problem;
+          running = false;
+          generateBtn.disabled = false;
+          stopBtn.hidden = true;
+          return;
         }
-      } catch (e) { console.error(e); }
-      loadList();
-    };
-    document.getElementById("refreshBtn").onclick = loadList;
-    slotSel.onchange = () => { showSlotTime(); loadList(); };
+        lectureEnd = minsOf(slot.end);
+      }
+      const subject = slot.subject;
+      const lecture = String(slotIndex + 1);
+      const date = todayString();
+      sessionId = date + "_L" + lecture + "_" + slug(subject);
 
-    if (role === "staff") loadList();
+      try {
+        await saveSession(sessionId, {
+          subject: subject,
+          lecture: Number(lecture),
+          type: slot.type,
+          time: slot.start + "-" + slot.end,
+          date: date,
+          staffName: sessionStorage.getItem("attendanceUser"),
+          staffId: sessionStorage.getItem("attendanceUserId"),
+          startedAt: Date.now(),
+          active: true,
+          token: "",
+          prevToken: "",
+          tokenExpiresAt: 0
+        });
+      } catch (e) {
+        console.error(e);
+        statusBox.textContent = "Could not start session. Check Firebase setup.";
+        running = false;
+        generateBtn.disabled = false;
+        stopBtn.hidden = true;
+        return;
+      }
+
+      presentBox.hidden = false;
+      const liveId = sessionId;
+      let lastSaved = -1;
+      unsubscribePresent = watchPresent(liveId, function (n) {
+        presentBox.textContent = "Present: " + n;
+        if (n !== lastSaved) {
+          lastSaved = n;
+          saveSession(liveId, { presentCount: n }).catch(function (e) { console.error(e); });
+        }
+      });
+
+      async function refreshCode() {
+        if (!running) return;
+
+        const now = Date.now();
+        const newToken = randomToken();
+        const prev = currentToken || "";
+        expiresAt = now + 10000;
+
+        try {
+          await saveSession(sessionId, {
+            token: newToken,
+            prevToken: prev,
+            tokenExpiresAt: expiresAt
+          });
+        } catch (e) {
+          console.error(e);
+          statusBox.textContent = "Could not update QR. Check your internet.";
+          return;
+        }
+
+        currentToken = newToken;
+        const text = JSON.stringify({ s: sessionId, t: newToken });
+
+        qrBox.innerHTML = "";
+        new QRCode(qrBox, {
+          text: text,
+          width: 220,
+          height: 220,
+          correctLevel: QRCode.CorrectLevel.M
+        });
+
+        if (!USE_FIREBASE) {
+          demoBox.hidden = false;
+          demoText.value = text;
+        }
+
+        statusBox.textContent = "QR active for " + subject + " — Lecture " + lecture + " (" + prettyDate(date) + ")";
+      }
+
+      await refreshCode();
+      refreshTimer = setInterval(refreshCode, 10000);
+
+      countdownTimer = setInterval(function () {
+        if (!running) return;
+
+        if (lectureEnd) {
+          const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+          if (nowMin >= lectureEnd) {
+            stopQR().then(function () {
+              statusBox.textContent = "Lecture time is over. QR stopped.";
+            });
+            return;
+          }
+        }
+        const remaining = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
+        countdownBox.textContent = "Next QR refresh in: " + remaining + " seconds";
+      }, 250);
+    }
+
+    async function stopQR(silent) {
+      const endingId = sessionId;
+
+      running = false;
+      clearInterval(refreshTimer);
+      clearInterval(countdownTimer);
+      if (unsubscribePresent) unsubscribePresent();
+
+      refreshTimer = null;
+      countdownTimer = null;
+      unsubscribePresent = null;
+      expiresAt = 0;
+      currentToken = null;
+      sessionId = null;
+      lectureEnd = 0;
+
+      generateBtn.disabled = false;
+      stopBtn.hidden = true;
+      qrBox.innerHTML = "";
+      countdownBox.textContent = "";
+      demoBox.hidden = true;
+
+      if (endingId) {
+        try {
+          await saveSession(endingId, {
+            active: false,
+            token: "",
+            prevToken: "",
+            tokenExpiresAt: 0,
+            endedAt: Date.now()
+          });
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      if (!silent) {
+        statusBox.textContent = "QR stopped. Generate a new QR to continue.";
+      }
+    }
+
+    window.generateQR = generateQR;
+    window.stopQR = stopQR;
+
+    setupTimetable();
+    if (checkStaff()) {
+      document.getElementById("dateBar").textContent =
+        "📅 Attendance date: " + prettyDate(todayString());
+      const vd = document.getElementById("viewDate");
+      vd.value = todayString();
+      vd.max = todayString();
+      vd.onchange = function () {
+        const box = document.getElementById("sessionsBox");
+        delete box.dataset.open;
+        renderSessions();
+      };
+      backfillPresentCounts(saveSession).then(function (n) {
+        if (n) renderSessions();
+      }).catch(function (e) { console.error(e); });
+      renderSessions();
+      setInterval(renderSessions, 10000);
+    }
   </script>
 </body>
 </html>
