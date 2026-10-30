@@ -142,10 +142,11 @@
         ["📅", "Academic Calendar", "board.html?type=calendar"],
         ["🕒", "Time Table", "timetable.html"],
         ["✅", "Attendance", isStaff ? "qr-attendance.html" : "scan-attendance.html"],
-        ["📚", "LMS", "board.html?type=lms"],
+        ["📚", "LMS", "lms.html"],
         ["🔔", "Notifications", "board.html?type=notice"]
       ];
       if (isStaff) tiles.push(["👩‍🎓", "Students", "students.html"]);
+      else tiles.push(["📊", "My Attendance", "my-attendance.html"]);
 
       const grid = document.getElementById("grid");
       tiles.forEach(function (t) {
