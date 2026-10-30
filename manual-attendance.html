@@ -1,1 +1,259 @@
- 
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manual Attendance</title>
+
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, sans-serif; background: #f1f5f9; color: #172033; }
+    header { background: #000; color: white; padding: 16px; display: flex; gap: 18px; align-items: center; }
+    header a { color: white; text-decoration: none; font-size: 26px; }
+    header h1 { margin: 0; font-size: 20px; }
+    .wrap { max-width: 700px; margin: 0 auto; padding: 12px; }
+    .card { background: white; border-radius: 14px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 8px #0000000f; }
+    label { display: block; margin: 12px 0 6px; font-weight: bold; }
+    input[type=date], input[type=text], select, button {
+      width: 100%; padding: 12px; border-radius: 8px; font-size: 16px;
+    }
+    input[type=date], input[type=text], select { border: 1px solid #cbd5e1; background: white; }
+    button { margin-top: 12px; border: none; background: #2563eb; color: white; font-weight: bold; cursor: pointer; }
+    button.gray { background: #475569; }
+    .banner { background: #dbeafe; color: #123b73; border-radius: 10px; padding: 12px; font-weight: bold; margin-top: 12px; }
+    .row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid #e2e8f0; }
+    .row input { width: 22px; height: 22px; flex-shrink: 0; }
+    .id { min-width: 110px; font-weight: bold; color: #172554; font-size: 14px; }
+    .nm { flex: 1; overflow-wrap: anywhere; }
+    .done { font-size: 12px; font-weight: bold; color: #166534; background: #dcfce7; padding: 3px 8px; border-radius: 6px; white-space: nowrap; }
+    #msg { font-weight: bold; margin-top: 12px; overflow-wrap: anywhere; }
+    .ok { color: #166534; } .bad { color: #b91c1c; }
+    .note { color: #64748b; font-size: 13px; }
+    a { color: #123b73; }
+  </style>
+</head>
+
+<body>
+  <header><a href="qr-attendance.html">←</a><h1>Manual attendance</h1></header>
+
+  <div class="wrap" id="wrap">
+    <div class="card">
+      <p class="note">Use this if a student was present but missed the QR (for example yesterday).</p>
+
+      <label for="date">Date</label>
+      <input id="date" type="date">
+
+      <label for="slot">Lecture</label>
+      <select id="slot"></select>
+
+      <div class="banner" id="banner"></div>
+    </div>
+
+    <div class="card" id="listCard">
+      <input id="search" type="text" placeholder="Search name or PRN">
+      <button class="gray" onclick="selectAll()">Select all not yet present</button>
+      <div id="list"></div>
+      <button onclick="save()" id="saveBtn">Mark selected as present</button>
+      <div id="msg"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { saveSession, getSession, markPresent, getStudents } from "./store.js";
+    import { attendanceForSession } from "./attendance-data.js";
+    import { TIMETABLE, DAY_NAMES, fmt } from "./timetable.js";
+
+    const role = (sessionStorage.getItem("attendanceRole") || "").toLowerCase();
+    const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+
+    let roster = [];
+    let presentIds = new Set();
+    let selected = new Set();
+
+    function two(n) { return String(n).padStart(2, "0"); }
+    function str(d) { return d.getFullYear() + "-" + two(d.getMonth() + 1) + "-" + two(d.getDate()); }
+    function toDate(s) { const p = s.split("-").map(Number); return new Date(p[0], p[1] - 1, p[2]); }
+    function pretty(s) {
+      const d = toDate(s);
+      return DAYS[d.getDay()] + ", " + two(d.getDate()) + "-" + MONTHS[d.getMonth()] + "-" + d.getFullYear();
+    }
+    function slug(t) { return t.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""); }
+
+    const dateEl = document.getElementById("date");
+    const slotEl = document.getElementById("slot");
+    const msg = document.getElementById("msg");
+
+    function show(cls, text) { msg.className = cls; msg.textContent = text; }
+
+    function lecturesFor(dateStr) {
+      const idx = toDate(dateStr).getDay();
+      if (idx === 0) return [];
+      return TIMETABLE[DAY_NAMES[idx - 1]].filter(function (x) { return x.type !== "Recess"; });
+    }
+
+    function fillSlots() {
+      const list = lecturesFor(dateEl.value);
+      slotEl.innerHTML = "";
+      list.forEach(function (x, i) {
+        const o = document.createElement("option");
+        o.value = i;
+        o.textContent = (i + 1) + ". " + fmt(x.start) + " - " + fmt(x.end) + " | " + x.type + ": " + x.subject;
+        slotEl.appendChild(o);
+      });
+    }
+
+    function current() {
+      const list = lecturesFor(dateEl.value);
+      const slot = list[Number(slotEl.value)];
+      if (!slot) return null;
+      const n = Number(slotEl.value) + 1;
+      return { slot: slot, n: n, id: dateEl.value + "_L" + n + "_" + slug(slot.subject) };
+    }
+
+    async function load() {
+      const cur = current();
+      const banner = document.getElementById("banner");
+      const listCard = document.getElementById("listCard");
+      msg.textContent = "";
+
+      if (!cur) {
+        banner.textContent = pretty(dateEl.value) + ": no lectures (Sunday).";
+        listCard.hidden = true;
+        return;
+      }
+      listCard.hidden = false;
+      banner.textContent = "Marking attendance for " + pretty(dateEl.value) + " | Lecture " +
+        cur.n + ": " + cur.slot.subject;
+
+      try {
+        roster = await getStudents();
+        const rec = await attendanceForSession(cur.id);
+        presentIds = new Set(rec.map(function (r) { return r.studentId; }));
+      } catch (e) {
+        console.error(e);
+        show("bad", "Could not load students. Check Firebase setup.");
+        return;
+      }
+      selected = new Set();
+      render();
+    }
+
+    function render() {
+      const q = document.getElementById("search").value.trim().toLowerCase();
+      const box = document.getElementById("list");
+      box.innerHTML = "";
+
+      if (!roster.length) {
+        box.textContent = "No students yet. Add them from the Students tile.";
+        return;
+      }
+
+      roster.filter(function (s) {
+        return !q || s.id.toLowerCase().includes(q) || s.name.toLowerCase().includes(q);
+      }).forEach(function (s) {
+        const row = document.createElement("label");
+        row.className = "row";
+        row.style.margin = "0";
+        row.style.fontWeight = "normal";
+
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        const already = presentIds.has(s.id);
+        cb.checked = already || selected.has(s.id);
+        cb.disabled = already;
+        cb.onchange = function () {
+          if (cb.checked) selected.add(s.id); else selected.delete(s.id);
+          updateBtn();
+        };
+
+        const id = document.createElement("span");
+        id.className = "id";
+        id.textContent = s.id;
+        const nm = document.createElement("span");
+        nm.className = "nm";
+        nm.textContent = s.name;
+        row.append(cb, id, nm);
+
+        if (already) {
+          const t = document.createElement("span");
+          t.className = "done";
+          t.textContent = "Present";
+          row.appendChild(t);
+        }
+        box.appendChild(row);
+      });
+      updateBtn();
+    }
+
+    function updateBtn() {
+      document.getElementById("saveBtn").textContent =
+        "Mark selected as present (" + selected.size + ")";
+    }
+
+    window.selectAll = function () {
+      roster.forEach(function (s) { if (!presentIds.has(s.id)) selected.add(s.id); });
+      render();
+    };
+
+    window.save = async function () {
+      const cur = current();
+      if (!cur) return;
+      if (!selected.size) { show("bad", "Select at least one student."); return; }
+
+      try {
+        const existing = await getSession(cur.id);
+        if (!existing) {
+          await saveSession(cur.id, {
+            subject: cur.slot.subject,
+            lecture: cur.n,
+            type: cur.slot.type,
+            time: cur.slot.start + "-" + cur.slot.end,
+            date: dateEl.value,
+            staffName: sessionStorage.getItem("attendanceUser"),
+            staffId: sessionStorage.getItem("attendanceUserId"),
+            startedAt: Date.now(),
+            active: false,
+            manual: true,
+            token: "",
+            prevToken: "",
+            tokenExpiresAt: 0
+          });
+        }
+
+        let done = 0;
+        const students = roster.filter(function (s) { return selected.has(s.id); });
+        for (const s of students) {
+          const r = await markPresent(cur.id, { id: s.id, name: s.name });
+          if (r === "ok") done++;
+        }
+        show("ok", done + " student(s) marked present for " + pretty(dateEl.value) + ".");
+        await load();
+        show("ok", done + " student(s) marked present for " + pretty(dateEl.value) + ".");
+      } catch (e) {
+        console.error(e);
+        show("bad", "Could not save. Check Firebase setup.");
+      }
+    };
+
+    if (role !== "staff") {
+      document.getElementById("wrap").innerHTML =
+        '<div class="card"><h3>Staff login required</h3><p><a href="index.html">Go to Login</a></p></div>';
+    } else {
+      const today = new Date();
+      const yesterday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
+      dateEl.max = str(today);
+      dateEl.value = str(yesterday);
+      fillSlots();
+      dateEl.onchange = function () {
+        if (!dateEl.value) return;
+        fillSlots();
+        load();
+      };
+      slotEl.onchange = load;
+      document.getElementById("search").addEventListener("input", render);
+      load();
+    }
+  </script>
+</body>
+</html>
