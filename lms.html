@@ -102,6 +102,8 @@
         <textarea id="mbody" rows="3"></textarea>
         <label for="mlink">Link (optional)</label>
         <input class="f" id="mlink" type="text" placeholder="https://...">
+        <label for="mfile">Or upload a PDF (max 4 MB)</label>
+        <input class="f" id="mfile" type="file" accept="application/pdf">
         <button class="btn" id="addBtn">Add</button>
         <p id="msg"></p>
       </div>
@@ -111,6 +113,7 @@
 
   <script type="module">
     import { addPost, getPosts, deletePost } from "./store.js";
+    import { uploadPdf, pdfBlob, deletePdf, MAX_PDF_BYTES } from "./files-data.js";
 
     const SUBJECTS = [
       ["Verbal Communication Skills", "26UIDAE101"],
@@ -135,6 +138,31 @@
     let current = null;
 
     function safeLink(u) { return /^https?:\/\//i.test(u) ? u : ""; }
+
+    async function openPdf(p, btn) {
+      const old = btn.textContent;
+      btn.textContent = "Opening...";
+      const w = window.open("", "_blank");
+      try {
+        const blob = await pdfBlob(p.link.slice(4));
+        const url = URL.createObjectURL(blob);
+        if (w) {
+          w.location.href = url;
+        } else {
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = (p.title || "file") + ".pdf";
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        }
+      } catch (e) {
+        console.error(e);
+        if (w) w.close();
+        alert("Could not open the PDF.");
+      }
+      btn.textContent = old;
+    }
 
     function showList() {
       current = null;
@@ -229,7 +257,17 @@
           b.textContent = p.body;
           c.appendChild(b);
         }
-        const href = safeLink(p.link || "");
+        const isPdf = (p.link || "").startsWith("pdf:");
+        if (isPdf) {
+          const pb = document.createElement("button");
+          pb.className = "btn";
+          pb.style.width = "auto";
+          pb.style.padding = "8px 14px";
+          pb.textContent = "📄 Open PDF";
+          pb.onclick = function () { openPdf(p, pb); };
+          c.appendChild(pb);
+        }
+        const href = isPdf ? "" : safeLink(p.link || "");
         if (href) {
           const a = document.createElement("a");
           a.href = href;
@@ -249,6 +287,9 @@
           d.textContent = "Delete";
           d.onclick = async function () {
             if (!confirm("Delete this?")) return;
+            if ((p.link || "").startsWith("pdf:")) {
+              try { await deletePdf(p.link.slice(4)); } catch (e) { console.error(e); }
+            }
             await deletePost(p.id);
             loadMaterials();
           };
@@ -263,11 +304,23 @@
       const link = document.getElementById("mlink").value.trim();
       if (!t) { msg.textContent = "Please enter a title."; return; }
       if (link && !safeLink(link)) { msg.textContent = "Link must start with http:// or https://"; return; }
+      const file = document.getElementById("mfile").files[0];
+      if (file) {
+        if (file.type !== "application/pdf") { msg.textContent = "Please choose a PDF file."; return; }
+        if (file.size > MAX_PDF_BYTES) { msg.textContent = "PDF is too big. Maximum is 4 MB."; return; }
+      }
+
       try {
+        let finalLink = link;
+        if (file) {
+          msg.style.color = "#2563eb";
+          msg.textContent = "Uploading PDF...";
+          finalLink = "pdf:" + await uploadPdf(file);
+        }
         await addPost("lms", {
           title: t,
           body: document.getElementById("mbody").value.trim(),
-          link: link,
+          link: finalLink,
           tag: current[1],
           by: sessionStorage.getItem("attendanceUser")
         });
@@ -275,9 +328,12 @@
         document.getElementById("mtitle").value = "";
         document.getElementById("mbody").value = "";
         document.getElementById("mlink").value = "";
+        document.getElementById("mfile").value = "";
+        msg.style.color = "";
         loadMaterials();
       } catch (e) {
         console.error(e);
+        msg.style.color = "";
         msg.textContent = "Could not save. Check Firebase setup.";
       }
     };
